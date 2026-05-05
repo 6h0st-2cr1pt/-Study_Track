@@ -14,8 +14,8 @@ class StudyTrackFlowTests(TestCase):
 				'first_name': 'Student',
 				'last_name': 'One',
 				'email': 'student1@example.com',
-				'password1': 'StrongPass123!',
-				'password2': 'StrongPass123!',
+				'password1': 'StrongPass123!!',
+				'password2': 'StrongPass123!!',
 			},
 			follow=True,
 		)
