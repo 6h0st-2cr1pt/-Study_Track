@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Notifications | StudyTrack{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h1 class="h4 section-title mb-1">Notifications</h1>
+        <p class="text-muted mb-0">Review reminders and academic alerts.</p>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-primary">Mark all as read</button>
+    </form>
+</div>
+
+<div class="card soft-shadow border-0">
+    <div class="card-body">
+        {% if notifications %}
+            <div class="list-group list-group-flush">
+                {% for notification in notifications %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start {% if not notification.is_read %}list-group-item-warning{% endif %}">
+                        <div class="me-3">
+                            <p class="mb-1">{{ notification.message }}</p>
+                            <small class="text-muted">{{ notification.created_at }}</small>
+                        </div>
+                        {% if not notification.is_read %}
+                            <a class="btn btn-sm btn-success" href="{% url 'mark_notification_read' notification.pk %}">Mark read</a>
+                        {% else %}
+                            <span class="badge bg-secondary">Read</span>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="mb-0 text-muted">No notifications yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

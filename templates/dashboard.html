@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | StudyTrack{% endblock %}
+{% block content %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Overall Average</p>
+                <h2 class="h1 mb-0">{% if overall_average is not None %}{{ overall_average }}{% else %}—{% endif %}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Academic Standing</p>
+                <h2 class="h4 mb-0">{{ standing }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card metric-card h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Unread Notifications</p>
+                <h2 class="h1 mb-0">{{ unread_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card soft-shadow border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h3 class="h5 section-title mb-1">Progress Tracking</h3>
+                        <p class="text-muted mb-0">Average grades across grading periods.</p>
+                    </div>
+                    <a class="btn btn-sm btn-primary" href="{% url 'add_grade' %}">Add Grade</a>
+                </div>
+                <canvas id="gradesChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card soft-shadow border-0 h-100">
+            <div class="card-body">
+                <h3 class="h5 section-title mb-3">Quick Actions</h3>
+                <div class="d-grid gap-2">
+                    <a class="btn btn-outline-primary" href="{% url 'add_grade' %}">Record Grade</a>
+                    <a class="btn btn-outline-primary" href="{% url 'add_goal' %}">Set Goal</a>
+                    <a class="btn btn-outline-primary" href="{% url 'notifications' %}">View Notifications</a>
+                </div>
+                <hr>
+                <p class="mb-1"><strong>Goals tracked:</strong> {{ total_goals }}</p>
+                <p class="mb-0 text-muted">Students can manually enter grades, monitor trends, and receive reminders when they fall below goals.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card soft-shadow border-0 mb-4">
+    <div class="card-body">
+        <h3 class="h5 section-title mb-3">Subject Performance</h3>
+        {% if subject_summaries %}
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Latest Grade</th>
+                            <th>Average</th>
+                            <th>Goal</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in subject_summaries %}
+                            <tr>
+                                <td>{{ item.subject.name }}</td>
+                                <td>{% if item.latest_grade %}{{ item.latest_grade.grade }}{% else %}—{% endif %}</td>
+                                <td>{% if item.average is not None %}{{ item.average }}{% else %}—{% endif %}</td>
+                                <td>
+                                    {% if item.goal %}
+                                        {{ item.goal.target_grade }}
+                                        {% if item.target_progress is not None %}
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div class="progress-bar" role="progressbar" style="width: {{ item.target_progress }}%;"></div>
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if item.goal and item.gap is not None %}
+                                        {% if item.gap >= 0 %}
+                                            <span class="badge bg-success">On track</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Below target</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">No goal</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="mb-0 text-muted">No subjects yet. Start by recording your first grade or goal.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card soft-shadow border-0 h-100">
+            <div class="card-body">
+                <h3 class="h5 section-title mb-3">Recent Grades</h3>
+                {% if recent_grades %}
+                    <ul class="list-group list-group-flush">
+                        {% for grade in recent_grades %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div>
+                                    <strong>{{ grade.subject.name }}</strong><br>
+                                    <small class="text-muted">{{ grade.get_grading_period_display }}</small>
+                                </div>
+                                <span class="badge bg-primary rounded-pill">{{ grade.grade }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="mb-0 text-muted">No grades recorded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card soft-shadow border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h5 section-title mb-0">Recent Notifications</h3>
+                    <a href="{% url 'notifications' %}">View all</a>
+                </div>
+                {% if notifications %}
+                    <div class="list-group list-group-flush">
+                        {% for notification in notifications %}
+                            <div class="list-group-item px-0">
+                                <p class="mb-1">{{ notification.message }}</p>
+                                <small class="text-muted">{{ notification.created_at }}</small>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="mb-0 text-muted">No notifications yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const labels = JSON.parse('{{ chart_labels_json|escapejs }}');
+    const dataPoints = JSON.parse('{{ chart_data_json|escapejs }}');
+    const ctx = document.getElementById('gradesChart');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Average Grade',
+                data: dataPoints,
+                borderColor: '#f97316',
+                backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                tension: 0.35,
+                fill: true,
+            }],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: 100,
+                },
+            },
+        },
+    });
+</script>
+{% endblock %}
+

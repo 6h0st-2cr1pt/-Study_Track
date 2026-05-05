@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Add Grade | StudyTrack{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7 col-md-9">
+        <div class="card soft-shadow border-0">
+            <div class="card-body p-4">
+                <h1 class="h4 section-title mb-3">Record a grade</h1>
+                <form method="post">
+                    {% csrf_token %}
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                        </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary">Save Grade</button>
+                    <a class="btn btn-outline-secondary" href="{% url 'dashboard' %}">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.querySelectorAll('input, select, textarea').forEach((field) => field.classList.add('form-control'));
+</script>
+{% endblock %}
+
