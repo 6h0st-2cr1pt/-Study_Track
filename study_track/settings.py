@@ -116,7 +116,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# Use an absolute URL path for STATIC_URL so generated URLs are correct.
+STATIC_URL = '/static/'
+
+# Include the project's top-level "static/" directory so {% static %}
+# can find files placed at the repository root (e.g. static/icons/...).
+from pathlib import Path as _Path
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# During production you may collect static files into STATIC_ROOT.
+# Not required for development, but set a sensible default.
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
