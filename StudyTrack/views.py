@@ -27,6 +27,15 @@ def _get_or_create_subject(user, subject_name):
 	return subject
 
 
+def _get_period_choices(user):
+	"""Get grading period choices based on user's grading structure."""
+	profile, _ = StudentProfile.objects.get_or_create(user=user)
+	if profile.grading_structure == StudentProfile.TRIMESTER:
+		return GradeEntry.TRIMESTER_PERIOD_CHOICES
+	else:
+		return GradeEntry.SEMESTER_PERIOD_CHOICES
+
+
 def _academic_standing(average):
 	if average is None:
 		return 'No grades yet'
@@ -92,8 +101,9 @@ def _calculate_predictive_grade(subject, goal):
 	if current_avg >= target:
 		return None
 
-	# Define grading periods for semester vs trimester
-	periods = [choice[0] for choice in GradeEntry.PERIOD_CHOICES]
+	# Get correct periods based on user's grading structure
+	period_choices = _get_period_choices(subject.user)
+	periods = [choice[0] for choice in period_choices]
 	entries_by_period = defaultdict(list)
 
 	for grade in all_grades:
@@ -179,11 +189,13 @@ def dashboard(request):
 	overall_average = grades.aggregate(avg=Avg('grade'))['avg']
 	period_average_rows = grades.values('grading_period').annotate(avg=Avg('grade')).order_by('grading_period')
 
-	chart_labels = [label for _, label in GradeEntry.PERIOD_CHOICES]
-	period_map = {choice: 0.0 for choice, _ in GradeEntry.PERIOD_CHOICES}
+	# Get correct period choices based on user's grading structure
+	period_choices = _get_period_choices(request.user)
+	chart_labels = [label for _, label in period_choices]
+	period_map = {choice: 0.0 for choice, _ in period_choices}
 	for row in period_average_rows:
 		period_map[row['grading_period']] = round(float(row['avg']), 2)
-	chart_data = [period_map[choice] for choice, _ in GradeEntry.PERIOD_CHOICES]
+	chart_data = [period_map[choice] for choice, _ in period_choices]
 
 	goals = Goal.objects.filter(user=request.user, active=True).select_related('subject')
 	goals_by_subject_id = {goal.subject_id: goal for goal in goals}

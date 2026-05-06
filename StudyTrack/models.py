@@ -47,14 +47,28 @@ class Subject(models.Model):
 class GradeEntry(models.Model):
 	PRELIM = 'prelim'
 	MIDTERM = 'midterm'
-	FINALS = 'final'
+	ENDTERM = 'endterm'
 	PROJECT = 'project'
 
+	# All possible periods
 	PERIOD_CHOICES = [
 		(PRELIM, 'Prelim'),
 		(MIDTERM, 'Midterm'),
-		(FINALS, 'Finals'),
+		(ENDTERM, 'Endterm'),
 		(PROJECT, 'Project'),
+	]
+
+	# Trimester periods: Prelim, Midterm, Endterm
+	TRIMESTER_PERIOD_CHOICES = [
+		(PRELIM, 'Prelim'),
+		(MIDTERM, 'Midterm'),
+		(ENDTERM, 'Endterm'),
+	]
+
+	# Semester periods: Midterm, Endterm
+	SEMESTER_PERIOD_CHOICES = [
+		(MIDTERM, 'Midterm'),
+		(ENDTERM, 'Endterm'),
 	]
 
 	# CHED grading components
