@@ -290,16 +290,10 @@
                         <span>Dashboard</span>
                     </span>
                 </a>
-                <a href="{% url 'add_grade' %}" class="{% if request.resolver_match.url_name == 'add_grade' %}active{% endif %}">
-                    <span class="sidebar-link-content">
-                        <img class="sidebar-icon" src="https://cdn-icons-png.flaticon.com/512/992/992683.png" alt="">
-                        <span>Add Grade</span>
-                    </span>
-                </a>
                 <a href="{% url 'add_goal' %}" class="{% if request.resolver_match.url_name == 'add_goal' %}active{% endif %}">
                     <span class="sidebar-link-content">
                         <img class="sidebar-icon" src="https://cdn-icons-png.flaticon.com/512/747/747376.png" alt="">
-                        <span>Add Goal</span>
+                        <span>Add Subject and Goal</span>
                     </span>
                 </a>
                 <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">

@@ -25,25 +25,25 @@ class StudentRegistrationForm(UserCreationForm):
 
 
 class GradeEntryForm(forms.Form):
-    subject_name = forms.CharField(label='Subject', max_length=120)
+    subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
     grading_period = forms.ChoiceField(choices=GradeEntry.PERIOD_CHOICES)
     grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5)
     notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
-
-    def clean_subject_name(self):
-        value = self.cleaned_data['subject_name']
-        return ' '.join(value.strip().split())
-
-
-class GoalForm(forms.Form):
-    subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
-    target_grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5)
-    active = forms.BooleanField(required=False, initial=True)
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         if user is not None:
             self.fields['subject'].queryset = Subject.objects.filter(user=user).order_by('name')
+
+
+class GoalForm(forms.Form):
+    subject_name = forms.CharField(label='Subject', max_length=120)
+    target_grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5)
+    active = forms.BooleanField(required=False, initial=True)
+
+    def clean_subject_name(self):
+        value = self.cleaned_data['subject_name']
+        return ' '.join(value.strip().split())
 
 
 class ProfileManagementForm(forms.Form):

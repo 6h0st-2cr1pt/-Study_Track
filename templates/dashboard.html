@@ -49,12 +49,12 @@
                 <h3 class="h5 section-title mb-3">Quick Actions</h3>
                 <div class="d-grid gap-2">
                     <a class="btn btn-outline-primary" href="{% url 'add_grade' %}">Record Grade</a>
-                    <a class="btn btn-outline-primary" href="{% url 'add_goal' %}">Set Goal</a>
+                    <a class="btn btn-outline-primary" href="{% url 'add_goal' %}">Add Subject and Goal</a>
                     <a class="btn btn-outline-primary" href="{% url 'notifications' %}">View Notifications</a>
                 </div>
                 <hr>
                 <p class="mb-1"><strong>Goals tracked:</strong> {{ total_goals }}</p>
-                <p class="mb-0 text-muted">Students can manually enter grades, monitor trends, and receive reminders when they fall below goals.</p>
+                <p class="mb-0 text-muted">Add subjects and goals first, then record grades to monitor trends and receive reminders when below target.</p>
             </div>
         </div>
     </div>
@@ -110,7 +110,7 @@
                 </table>
             </div>
         {% else %}
-            <p class="mb-0 text-muted">No subjects yet. Start by recording your first grade or goal.</p>
+            <p class="mb-0 text-muted">No subjects yet. Start by adding your first subject and goal.</p>
         {% endif %}
     </div>
 </div>

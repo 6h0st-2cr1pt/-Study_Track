@@ -28,18 +28,18 @@ class StudyTrackFlowTests(TestCase):
 	def test_grade_goal_and_notifications_flow(self):
 		user = User.objects.create_user(username='student2', password='StrongPass123!')
 		self.client.login(username='student2', password='StrongPass123!')
-		subject = Subject.objects.create(user=user, name='Mathematics')
 
 		goal_response = self.client.post(
 			reverse('add_goal'),
 			{
-				'subject': str(subject.pk),
+				'subject_name': 'Mathematics',
 				'target_grade': '90',
 				'active': 'on',
 			},
 			follow=True,
 		)
 		self.assertEqual(goal_response.status_code, 200)
+		self.assertTrue(Subject.objects.filter(user=user, name='Mathematics').exists())
 
 		grade_response = self.client.post(
 			reverse('add_grade'),
@@ -64,7 +64,7 @@ class StudyTrackFlowTests(TestCase):
 		self.assertTrue(Notification.objects.filter(user=user, is_read=False).count() == 0)
 
 		goal_page = self.client.get(reverse('add_goal'))
-		self.assertContains(goal_page, 'Mathematics')
+		self.assertContains(goal_page, 'Add subject and goal')
 
 	def test_dashboard_requires_login(self):
 		response = self.client.get(reverse('dashboard'))
@@ -90,14 +90,16 @@ class StudyTrackFlowTests(TestCase):
 		self.assertNotContains(login_response, '<aside class="sidebar"')
 		self.assertNotContains(register_response, '<aside class="sidebar"')
 
-	def test_goal_page_shows_empty_state_when_no_subjects(self):
+	def test_goal_page_allows_subject_and_goal_entry(self):
 		user = User.objects.create_user(username='student4', password='StrongPass123!')
 		self.client.login(username='student4', password='StrongPass123!')
 
 		response = self.client.get(reverse('add_goal'))
 
 		self.assertEqual(response.status_code, 200)
-		self.assertContains(response, 'No subjects are available yet')
+		self.assertContains(response, 'Add subject and goal')
+		self.assertContains(response, 'Create your subject and target grade first')
+		self.assertNotContains(response, 'No subjects are available yet')
 
 	def test_manage_profile_updates_user_and_student_profile(self):
 		user = User.objects.create_user(username='student5', password='StrongPass123!', email='old@example.com')

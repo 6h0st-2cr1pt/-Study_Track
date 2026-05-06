@@ -140,9 +140,16 @@ def dashboard(request):
 @login_required
 def add_grade(request):
 	if request.method == 'POST':
-		form = GradeEntryForm(request.POST)
+		post_data = request.POST
+		# Support legacy POSTs that send 'subject_name' (string) by converting to subject id
+		if 'subject_name' in request.POST and 'subject' not in request.POST:
+			subject = _get_or_create_subject(request.user, request.POST.get('subject_name'))
+			post_data = request.POST.copy()
+			post_data['subject'] = str(subject.pk)
+
+		form = GradeEntryForm(post_data, user=request.user)
 		if form.is_valid():
-			subject = _get_or_create_subject(request.user, form.cleaned_data['subject_name'])
+			subject = form.cleaned_data['subject']
 			grade_entry = GradeEntry.objects.create(
 				user=request.user,
 				subject=subject,
@@ -154,18 +161,17 @@ def add_grade(request):
 			messages.success(request, f'Grade for {subject.name} was saved successfully.')
 			return redirect('dashboard')
 	else:
-		form = GradeEntryForm()
+		form = GradeEntryForm(user=request.user)
 
 	return render(request, 'grade_form.html', {'form': form})
 
 
 @login_required
 def add_goal(request):
-	available_subjects = Subject.objects.filter(user=request.user).order_by('name')
 	if request.method == 'POST':
-		form = GoalForm(request.POST, user=request.user)
+		form = GoalForm(request.POST)
 		if form.is_valid():
-			subject = form.cleaned_data['subject']
+			subject = _get_or_create_subject(request.user, form.cleaned_data['subject_name'])
 			Goal.objects.filter(user=request.user, subject=subject, active=True).update(active=False)
 			Goal.objects.create(
 				user=request.user,
@@ -173,12 +179,15 @@ def add_goal(request):
 				target_grade=form.cleaned_data['target_grade'],
 				active=form.cleaned_data['active'],
 			)
-			messages.success(request, f'Goal for {subject.name} has been saved.')
+			messages.success(request, f'Subject and goal for {subject.name} have been saved.')
 			return redirect('dashboard')
 	else:
-		form = GoalForm(user=request.user)
+		form = GoalForm()
 
-	return render(request, 'goal_form.html', {'form': form, 'has_subjects': available_subjects.exists()})
+	# Include an empty grade form so both forms can be shown on the same page
+	grade_form = GradeEntryForm(user=request.user)
+
+	return render(request, 'goal_form.html', {'form': form, 'grade_form': grade_form})
 
 
 
