@@ -31,7 +31,10 @@
     </div>
 </div>
 <script>
-    document.querySelectorAll('input, textarea').forEach((field) => field.classList.add('form-control'));
+    // Add Bootstrap form classes to inputs, selects and textareas
+    document.querySelectorAll('input').forEach((field) => field.classList.add('form-control'));
+    document.querySelectorAll('textarea').forEach((field) => field.classList.add('form-control'));
+    document.querySelectorAll('select').forEach((field) => field.classList.add('form-select'));
 </script>
 {% endblock %}
 

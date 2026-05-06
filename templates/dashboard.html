@@ -1,12 +1,14 @@
 {% extends 'base.html' %}
+
 {% block title %}Dashboard | StudyTrack{% endblock %}
+
 {% block content %}
 <div class="row g-3 mb-4">
     <div class="col-md-4">
         <div class="card metric-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Overall Average</p>
-                <h2 class="h1 mb-0">{% if overall_average is not None %}{{ overall_average }}{% else %}—{% endif %}</h2>
+                <h2 class="mb-0">{% if overall_average is not None %}{{ overall_average }}{% else %}—{% endif %}</h2>
             </div>
         </div>
     </div>
@@ -14,7 +16,7 @@
         <div class="card metric-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Academic Standing</p>
-                <h2 class="h4 mb-0">{{ standing }}</h2>
+                <h2 class="mb-0">{{ standing }}</h2>
             </div>
         </div>
     </div>
@@ -22,7 +24,7 @@
         <div class="card metric-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Unread Notifications</p>
-                <h2 class="h1 mb-0">{{ unread_count }}</h2>
+                <h2 class="mb-0">{{ unread_count }}</h2>
             </div>
         </div>
     </div>
@@ -102,6 +104,21 @@
                                         {% endif %}
                                     {% else %}
                                         <span class="badge bg-secondary">No goal</span>
+                                    {% endif %}
+
+                                    {% if item.predicted_info %}
+                                        <div class="mt-2">
+                                            {% if item.predicted_info.status == 'impossible' %}
+                                                <span class="badge bg-danger">Target no longer achievable</span>
+                                                <div class="small text-muted">Adjust goal — aim for passing (≥75) instead.</div>
+                                            {% elif item.predicted_info.status == 'ontrack' %}
+                                                <span class="badge bg-success">On track to pass</span>
+                                            {% elif item.predicted_info.status == 'achievable' %}
+                                                <span class="badge bg-warning text-dark">Needs {{ item.predicted_info.required }}</span>
+                                            {% elif item.predicted_info.status == 'met' %}
+                                                <span class="badge bg-success">Target met</span>
+                                            {% endif %}
+                                        </div>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -193,4 +210,3 @@
     });
 </script>
 {% endblock %}
-

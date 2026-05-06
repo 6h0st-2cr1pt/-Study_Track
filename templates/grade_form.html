@@ -5,8 +5,7 @@
     <div class="col-lg-7 col-md-9">
         <div class="card soft-shadow border-0">
             <div class="card-body p-4">
-                <h1 class="h4 section-title mb-2">Record a grade</h1>
-                <p class="text-muted mb-3">Select the subject name and enter the latest grade to update your progress.</p>
+                <h1 class="h4 section-title mb-3">Record a grade</h1>
                 <form method="post">
                     {% csrf_token %}
                     {% for field in form %}

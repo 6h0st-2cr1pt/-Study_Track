@@ -44,7 +44,7 @@ class GradeEntryForm(forms.Form):
 		super().__init__(*args, **kwargs)
 		if user is not None:
 			self.fields['subject'].queryset = Subject.objects.filter(user=user).order_by('name')
-
+			
 			# Get user's profile to determine grading structure
 			profile, _ = StudentProfile.objects.get_or_create(user=user)
 			if profile.grading_structure == StudentProfile.TRIMESTER:

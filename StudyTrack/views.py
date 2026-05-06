@@ -76,45 +76,78 @@ def _calculate_ched_weighted_average(subject):
 
 def _calculate_predictive_grade(subject, goal):
 	"""
-	Calculate the minimum grade needed in remaining terms to achieve target.
-	Returns None if target is already achieved or no grades exist.
+	Return predictive information for the subject and goal.
+
+	Returned dict keys:
+	  - required: float | None -> required average across remaining periods
+	  - status: 'met'|'ontrack'|'achievable'|'impossible'|'no_remaining'
+	  - message: string message for UI/notifications
 	"""
-	all_grades = list(subject.grades.all())
-	if not all_grades:
-		return None
+	# Effective target: must be at least passing (75)
+	effective_target = 75.0
+	if goal is not None:
+		try:
+			effective_target = max(75.0, float(goal.target_grade))
+		except Exception:
+			effective_target = 75.0
 
-	# Calculate current average
-	current_avg = _calculate_ched_weighted_average(subject)
-	if current_avg is None:
-		return None
-
-	target = float(goal.target_grade)
-
-	# If already achieved target, return None
-	if current_avg >= target:
-		return None
-
-	# Get correct periods based on user's grading structure
+	# Determine grading periods
 	period_choices = _get_period_choices(subject.user)
 	periods = [choice[0] for choice in period_choices]
-	entries_by_period = defaultdict(list)
+	total_periods = len(periods)
 
-	for grade in all_grades:
-		entries_by_period[grade.grading_period].append(grade)
+	# Build per-period averages
+	grades = subject.grades.all()
+	period_averages = {}
+	for period_code in periods:
+		period_grades = grades.filter(grading_period=period_code)
+		if not period_grades:
+			continue
+		total = sum(float(g.grade) for g in period_grades)
+		period_averages[period_code] = total / len(period_grades)
 
-	# Count completed periods and calculate what's needed
-	completed_periods = len(entries_by_period)
-	remaining_periods = len(periods) - completed_periods
+	completed_periods = len(period_averages)
+	remaining_periods = total_periods - completed_periods
 
+	# No remaining periods
 	if remaining_periods <= 0:
-		return None
+		current_overall = round(sum(period_averages.values()) / completed_periods, 2) if completed_periods else None
+		if current_overall is None:
+			return {'required': None, 'status': 'no_remaining', 'message': None}
+		if current_overall >= effective_target:
+			return {'required': None, 'status': 'met', 'message': 'Target already achieved.'}
+		return {'required': None, 'status': 'no_remaining', 'message': 'No remaining assessments to change the outcome.'}
 
-	# Calculate minimum required average in remaining periods
-	# Formula: (target * total_periods - current_sum) / remaining_periods
-	current_sum = current_avg * completed_periods
-	required_avg = (target * len(periods) - current_sum) / remaining_periods
+	# Sum current period averages
+	current_sum = sum(period_averages.values())
 
-	return max(0, min(100, round(required_avg, 2)))
+	# required average in remaining periods so overall >= effective_target
+	required_avg = (effective_target * total_periods - current_sum) / remaining_periods
+
+	if required_avg <= 0:
+		return {'required': None, 'status': 'met', 'message': 'Target already achieved.'}
+
+	required_avg = round(required_avg, 2)
+
+	if required_avg > 100:
+		return {
+			'required': required_avg,
+			'status': 'impossible',
+			'message': 'Target is no longer achievable. Suggest: Adjust goal. Aim for passing instead.'
+		}
+
+	if required_avg < 75:
+		return {
+			'required': required_avg,
+			'status': 'ontrack',
+			'message': 'You are on track to pass.'
+		}
+
+	return {
+		'required': required_avg,
+		'status': 'achievable',
+		'message': f'You need an average of {required_avg} in remaining assessments to reach your target.'
+	}
 
 
 def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
@@ -141,13 +174,24 @@ def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
 
 	# Predictive notification if goal exists
 	if goal:
-		required = _calculate_predictive_grade(subject, goal)
-		if required and required > 90:
+		info = _calculate_predictive_grade(subject, goal)
+		req = None
+		if isinstance(info, dict):
+			req = info.get('required')
+		else:
+			req = info
+
+		if req and req > 90:
 			msg = (
 				f'Heads up: To achieve your target of {goal.target_grade} in {subject.name}, '
-				f'you\'ll need an average of {required} in remaining assessments.'
+				f'you\'ll need an average of {req} in remaining assessments.'
 			)
 			notif = Notification.objects.create(user=user, message=msg)
+			notifications_created.append(notif)
+
+		# If impossible according to predictive calculation, create a helpful notification
+		if isinstance(info, dict) and info.get('status') == 'impossible':
+			notif = Notification.objects.create(user=user, message=info.get('message'))
 			notifications_created.append(notif)
 
 	return notifications_created
@@ -204,14 +248,14 @@ def dashboard(request):
 		goal = goals_by_subject_id.get(subject.id)
 		target_progress = None
 		gap = None
-		predicted_grade = None
+		predicted_info = None
 
 		if goal and latest_grade is not None:
 			gap = round(float(latest_grade.grade) - float(goal.target_grade), 2)
 			if float(goal.target_grade) > 0:
 				target_progress = min(round((float(latest_grade.grade) / float(goal.target_grade)) * 100, 1), 100)
-			# Get predictive grade needed
-			predicted_grade = _calculate_predictive_grade(subject, goal)
+			# Get predictive info needed
+			predicted_info = _calculate_predictive_grade(subject, goal)
 
 		subject_summaries.append(
 			{
@@ -221,8 +265,8 @@ def dashboard(request):
 				'goal': goal,
 				'gap': gap,
 				'target_progress': target_progress,
-				'predicted_grade': predicted_grade,
-				'prediction_needed': predicted_grade is not None,
+				'predicted_info': predicted_info,
+				'prediction_needed': (predicted_info is not None and isinstance(predicted_info, dict) and predicted_info.get('required') is not None),
 			}
 		)
 
@@ -346,6 +390,10 @@ def data_management(request):
 		grades = subject.grades.all()
 		goals = subject.goals.filter(active=True)
 
+		# Latest grade
+		subject_grades = list(grades)
+		latest_grade = subject_grades[0] if subject_grades else None
+
 		# Calculate average
 		if grades:
 			average = sum(float(g.grade) for g in grades) / len(grades)
@@ -353,17 +401,36 @@ def data_management(request):
 		else:
 			average = None
 
-		# Get target grade from active goal
-		target_grade = None
-		if goals:
-			target_grade = goals.first().target_grade
+		# Get active goal
+		goal_obj = goals.first() if goals else None
+		target_grade = goal_obj.target_grade if goal_obj else None
+
+		# Progress toward goal
+		gap = None
+		target_progress = None
+		if goal_obj and latest_grade is not None:
+			try:
+				gap = round(float(latest_grade.grade) - float(goal_obj.target_grade), 2)
+				if float(goal_obj.target_grade) > 0:
+					target_progress = min(round((float(latest_grade.grade) / float(goal_obj.target_grade)) * 100, 1), 100)
+			except Exception:
+				gap = None
+
+		# Predictive info
+		prediction_info = None
+		if goal_obj:
+			prediction_info = _calculate_predictive_grade(subject, goal_obj)
 
 		subject_data.append({
 			'subject': subject,
+			'latest_grade': latest_grade,
 			'grades_count': grades.count(),
 			'average': average,
-			'target_grade': target_grade,
+			'goal': goal_obj,
+			'gap': gap,
+			'target_progress': target_progress,
 			'goals_count': goals.count(),
+			'prediction_info': prediction_info,
 		})
 
 	context = {
@@ -478,4 +545,3 @@ def delete_goal(request, pk):
 		messages.success(request, 'Goal deleted successfully.')
 		return redirect('edit_subject', pk=subject_pk)
 	return render(request, 'delete_goal.html', {'goal': goal})
-
