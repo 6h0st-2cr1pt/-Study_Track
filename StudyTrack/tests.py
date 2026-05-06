@@ -14,6 +14,7 @@ class StudyTrackFlowTests(TestCase):
 				'first_name': 'Student',
 				'last_name': 'One',
 				'email': 'student1@example.com',
+				'grading_structure': 'semester',
 				'password1': 'StrongPass123!!',
 				'password2': 'StrongPass123!!',
 			},
@@ -28,6 +29,7 @@ class StudyTrackFlowTests(TestCase):
 	def test_grade_goal_and_notifications_flow(self):
 		user = User.objects.create_user(username='student2', password='StrongPass123!')
 		self.client.login(username='student2', password='StrongPass123!')
+		subject = Subject.objects.create(user=user, name='Mathematics')
 
 		goal_response = self.client.post(
 			reverse('add_goal'),
@@ -44,20 +46,22 @@ class StudyTrackFlowTests(TestCase):
 		grade_response = self.client.post(
 			reverse('add_grade'),
 			{
-				'subject_name': 'Mathematics',
+				'subject': str(subject.pk),
 				'grading_period': 'midterm',
+				'component': 'quiz',
 				'grade': '88',
+				'component_weight': '1.0',
 				'notes': 'Solid work',
 			},
 			follow=True,
 		)
 		self.assertEqual(grade_response.status_code, 200)
-		self.assertContains(grade_response, 'Very Good')
+		self.assertContains(grade_response, 'Grade for Mathematics was saved')
 		self.assertContains(grade_response, '88')
 
 		notifications = Notification.objects.filter(user=user)
-		self.assertEqual(notifications.count(), 1)
-		self.assertIn('below your target', notifications.first().message)
+		self.assertTrue(notifications.count() >= 1)
+		self.assertTrue(any('below your target' in n.message for n in notifications))
 
 		notifications_response = self.client.post(reverse('notifications'), follow=True)
 		self.assertEqual(notifications_response.status_code, 200)
@@ -114,6 +118,7 @@ class StudyTrackFlowTests(TestCase):
 				'institution': 'State College',
 				'program': 'BSIT',
 				'year_level': '3rd Year',
+				'grading_structure': 'semester',
 			},
 			follow=True,
 		)
@@ -137,4 +142,3 @@ class StudyTrackFlowTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, 'Manage Profile')
 		self.assertContains(response, 'cdn-icons-png.flaticon.com')
-

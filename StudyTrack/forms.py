@@ -9,10 +9,16 @@ class StudentRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=150, required=False)
     last_name = forms.CharField(max_length=150, required=False)
+    grading_structure = forms.ChoiceField(
+        choices=StudentProfile.GRADING_STRUCTURE_CHOICES,
+        initial=StudentProfile.SEMESTER,
+        label='School Academic Calendar',
+        help_text='Select your school\'s academic calendar structure (Semester or Trimester)'
+    )
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+        fields = ('username', 'first_name', 'last_name', 'email', 'grading_structure', 'password1', 'password2')
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -21,13 +27,19 @@ class StudentRegistrationForm(UserCreationForm):
         user.last_name = self.cleaned_data['last_name']
         if commit:
             user.save()
+            # Update the student profile with grading structure
+            profile, _ = StudentProfile.objects.get_or_create(user=user)
+            profile.grading_structure = self.cleaned_data['grading_structure']
+            profile.save(update_fields=['grading_structure'])
         return user
 
 
 class GradeEntryForm(forms.Form):
     subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
     grading_period = forms.ChoiceField(choices=GradeEntry.PERIOD_CHOICES)
-    grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5)
+    component = forms.ChoiceField(choices=GradeEntry.COMPONENT_CHOICES, initial=GradeEntry.QUIZ, label='Grade Component (CHED)')
+    grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, label='Score (0-100)')
+    component_weight = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, initial=1.0, label='Component Weight %', required=False)
     notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
 
     def __init__(self, *args, user=None, **kwargs):
@@ -53,6 +65,10 @@ class ProfileManagementForm(forms.Form):
     institution = forms.CharField(max_length=150, required=False)
     program = forms.CharField(max_length=150, required=False)
     year_level = forms.CharField(max_length=50, required=False)
+    grading_structure = forms.ChoiceField(
+        choices=StudentProfile.GRADING_STRUCTURE_CHOICES,
+        label='School Academic Calendar'
+    )
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -65,6 +81,7 @@ class ProfileManagementForm(forms.Form):
             self.fields['institution'].initial = profile.institution
             self.fields['program'].initial = profile.program
             self.fields['year_level'].initial = profile.year_level
+            self.fields['grading_structure'].initial = profile.grading_structure
 
     def save(self):
         profile, _ = StudentProfile.objects.get_or_create(user=self.user)
@@ -76,8 +93,6 @@ class ProfileManagementForm(forms.Form):
         profile.institution = self.cleaned_data['institution']
         profile.program = self.cleaned_data['program']
         profile.year_level = self.cleaned_data['year_level']
-        profile.save(update_fields=['institution', 'program', 'year_level', 'updated_at'])
+        profile.grading_structure = self.cleaned_data['grading_structure']
+        profile.save(update_fields=['institution', 'program', 'year_level', 'grading_structure', 'updated_at'])
         return self.user, profile
-
-
-

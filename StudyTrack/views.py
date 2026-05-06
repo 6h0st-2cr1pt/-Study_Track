@@ -1,9 +1,11 @@
 import json
+from decimal import Decimal
+from collections import defaultdict
 
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
-from django.db.models import Avg
+from django.db.models import Avg, Sum, Count
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import GradeEntryForm, GoalForm, ProfileManagementForm, StudentRegistrationForm
@@ -39,21 +41,113 @@ def _academic_standing(average):
 	return 'Needs Improvement'
 
 
-def _create_grade_notifications(user, subject, grade_value):
-	active_goal = Goal.objects.filter(user=user, subject=subject, active=True).order_by('-created_at').first()
-	if active_goal and grade_value < active_goal.target_grade:
-		Notification.objects.create(
-			user=user,
-			message=(
-				f'Your {subject.name} grade of {grade_value} is below your target '
-				f'of {active_goal.target_grade}.'
-			),
+def _calculate_ched_weighted_average(subject):
+	"""Calculate CHED weighted average for a subject considering component weights."""
+	grades = subject.grades.all()
+	if not grades:
+		return None
+
+	# Group by grading period and calculate component weights
+	period_averages = {}
+	for period in GradeEntry.PERIOD_CHOICES:
+		period_code = period[0]
+		period_grades = grades.filter(grading_period=period_code)
+		if not period_grades:
+			continue
+
+		total_weighted_sum = Decimal('0')
+		total_weights = Decimal('0')
+
+		for grade_entry in period_grades:
+			weight = grade_entry.component_weight if grade_entry.component_weight else Decimal('1')
+			total_weighted_sum += grade_entry.grade * weight
+			total_weights += weight
+
+		if total_weights > 0:
+			period_averages[period_code] = float(total_weighted_sum / total_weights)
+
+	# Calculate overall average across all periods
+	if period_averages:
+		return round(sum(period_averages.values()) / len(period_averages), 2)
+	return None
+
+
+def _calculate_predictive_grade(subject, goal):
+	"""
+	Calculate the minimum grade needed in remaining terms to achieve target.
+	Returns None if target is already achieved or no grades exist.
+	"""
+	all_grades = list(subject.grades.all())
+	if not all_grades:
+		return None
+
+	# Calculate current average
+	current_avg = _calculate_ched_weighted_average(subject)
+	if current_avg is None:
+		return None
+
+	target = float(goal.target_grade)
+
+	# If already achieved target, return None
+	if current_avg >= target:
+		return None
+
+	# Define grading periods for semester vs trimester
+	periods = [choice[0] for choice in GradeEntry.PERIOD_CHOICES]
+	entries_by_period = defaultdict(list)
+
+	for grade in all_grades:
+		entries_by_period[grade.grading_period].append(grade)
+
+	# Count completed periods and calculate what's needed
+	completed_periods = len(entries_by_period)
+	remaining_periods = len(periods) - completed_periods
+
+	if remaining_periods <= 0:
+		return None
+
+	# Calculate minimum required average in remaining periods
+	# Formula: (target * total_periods - current_sum) / remaining_periods
+	current_sum = current_avg * completed_periods
+	required_avg = (target * len(periods) - current_sum) / remaining_periods
+
+	return max(0, min(100, round(required_avg, 2)))
+
+
+def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
+	"""Create intelligent notifications based on grades and goals."""
+	notifications_created = []
+
+	# Check against target goal
+	if goal and float(grade_value) < float(goal.target_grade):
+		msg = (
+			f'Your {subject.name} grade of {grade_value} is below your target '
+			f'of {goal.target_grade}.'
 		)
-	if grade_value < 75:
-		Notification.objects.create(
-			user=user,
-			message=f'Your {subject.name} grade of {grade_value} needs attention. Consider extra review time.',
+		notif = Notification.objects.create(user=user, message=msg)
+		notifications_created.append(notif)
+
+	# Check against passing threshold
+	if float(grade_value) < 75:
+		msg = (
+			f'Alert: Your {subject.name} grade of {grade_value} is below the '
+			f'passing threshold (75). Consider requesting extra support.'
 		)
+		notif = Notification.objects.create(user=user, message=msg)
+		notifications_created.append(notif)
+
+	# Predictive notification if goal exists
+	if goal:
+		required = _calculate_predictive_grade(subject, goal)
+		if required and required > 90:
+			msg = (
+				f'Heads up: To achieve your target of {goal.target_grade} in {subject.name}, '
+				f'you\'ll need an average of {required} in remaining assessments.'
+			)
+			notif = Notification.objects.create(user=user, message=msg)
+			notifications_created.append(notif)
+
+	return notifications_created
 
 
 def home(request):
@@ -70,7 +164,6 @@ def register(request):
 		form = StudentRegistrationForm(request.POST)
 		if form.is_valid():
 			user = form.save()
-			StudentProfile.objects.get_or_create(user=user)
 			login(request, user)
 			messages.success(request, 'Welcome to StudyTrack. Your account has been created successfully.')
 			return redirect('dashboard')
@@ -99,16 +192,22 @@ def dashboard(request):
 	for subject in Subject.objects.filter(user=request.user).prefetch_related('grades').order_by('name'):
 		subject_grades = list(subject.grades.all())
 		latest_grade = subject_grades[0] if subject_grades else None
-		subject_average = None
-		if subject_grades:
-			subject_average = round(sum(float(grade.grade) for grade in subject_grades) / len(subject_grades), 2)
+
+		# Use CHED weighted average
+		subject_average = _calculate_ched_weighted_average(subject)
+
 		goal = goals_by_subject_id.get(subject.id)
 		target_progress = None
 		gap = None
+		predicted_grade = None
+
 		if goal and latest_grade is not None:
 			gap = round(float(latest_grade.grade) - float(goal.target_grade), 2)
 			if float(goal.target_grade) > 0:
 				target_progress = min(round((float(latest_grade.grade) / float(goal.target_grade)) * 100, 1), 100)
+			# Get predictive grade needed
+			predicted_grade = _calculate_predictive_grade(subject, goal)
+
 		subject_summaries.append(
 			{
 				'subject': subject,
@@ -117,6 +216,8 @@ def dashboard(request):
 				'goal': goal,
 				'gap': gap,
 				'target_progress': target_progress,
+				'predicted_grade': predicted_grade,
+				'prediction_needed': predicted_grade is not None,
 			}
 		)
 
@@ -154,10 +255,16 @@ def add_grade(request):
 				user=request.user,
 				subject=subject,
 				grading_period=form.cleaned_data['grading_period'],
+				component=form.cleaned_data['component'],
 				grade=form.cleaned_data['grade'],
+				component_weight=form.cleaned_data.get('component_weight') or Decimal('1.0'),
 				notes=form.cleaned_data['notes'],
 			)
-			_create_grade_notifications(request.user, subject, grade_entry.grade)
+
+			# Get active goal and create notifications
+			active_goal = Goal.objects.filter(user=request.user, subject=subject, active=True).order_by('-created_at').first()
+			_create_enhanced_grade_notifications(request.user, subject, grade_entry.grade, active_goal)
+
 			messages.success(request, f'Grade for {subject.name} was saved successfully.')
 			return redirect('dashboard')
 	else:
@@ -224,3 +331,4 @@ def mark_notification_read(request, pk):
 	notification.save(update_fields=['is_read'])
 	messages.success(request, 'Notification marked as read.')
 	return redirect('notifications')
+
