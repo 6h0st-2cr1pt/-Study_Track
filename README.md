@@ -12,20 +12,17 @@ StudyTrack is a Django-based academic progress monitoring system for college stu
 - Adapts period calculations for predictive analytics based on academic calendar
 - Dashboard charts dynamically show only relevant grading periods
 
-### 2. **CHED Grading Components**
-Supports standard CHED grading components with configurable weights:
-- Attendance (10%)
-- Participation (10%)
-- Quizzes (20%)
-- Assignments (20%)
-- Midterm Exam (20%)
-- Final Exam (20%)
-- Project Work (Custom %)
+### 2. **Simple Grade Entry**
+- Students record only their **final midterm or endterm grades** (no component breakdown)
+- Teachers calculate CHED components (Attendance, Quizzes, Assignments, etc.) and provide the overall grade
+- Clean, straightforward interface focusing on period grades only
+- Optional notes field for additional context
 
-### 3. **Intelligent Grade Tracking**
-- Record grades by subject, grading period, and component
-- Automatic CHED weighted average calculation per subject
+### 3. **Simple Grade Tracking**
+- Record grades by subject and grading period (Midterm or Endterm for semester; Prelim, Midterm, or Endterm for trimester)
+- Automatic average calculation per subject across all grading periods
 - Overall academic performance tracking with letter grades
+- Teachers handle CHED component weighting before providing grades to students
 
 ### 4. **Predictive Analytics**
 - **Minimum Grade Calculator**: Determines the minimum grade required in remaining assessment terms to:
@@ -72,11 +69,11 @@ Supports standard CHED grading components with configurable weights:
 
 ### Recording Grades
 1. Toggle to **"Add Grade"** panel on the same page
-2. Select subject, **grading period** (automatically filtered based on your academic calendar!):
+2. Select subject and **grading period** (automatically filtered based on your academic calendar):
    - **Semester**: Midterm, Endterm
    - **Trimester**: Prelim, Midterm, Endterm
-3. Select CHED component (Attendance, Quiz, Assignment, etc.)
-4. Enter score (0-100) and optional weight percentage
+3. Enter your overall grade (0-100) for that period
+4. Add optional notes if needed
 5. System automatically generates smart notifications
 
 ### Monitoring Progress
@@ -91,15 +88,16 @@ Supports standard CHED grading components with configurable weights:
 - **StudentProfile**: Stores grading structure (semester/trimester), institution, program, year level
 - **Subject**: Course name linked to user
 - **Goal**: Target grade per subject with active state
-- **GradeEntry**: Individual grade with CHED component, weight, period
+- **GradeEntry**: Individual period grade (Prelim, Midterm, or Endterm)
 - **Notification**: Smart alerts for goal/threshold comparisons
 
 ### Calculations
-- **CHED Weighted Average**: Considers component weights within grading periods
-- **Predictive Grade**: Machine learning-ready calculation for remaining terms
-  - Automatically accounts for student's academic calendar (2 terms for semester, 3 for trimester)
-  - Calculates minimum grade needed based on completed vs remaining periods
+- **Grade Average**: Simple average of all grades in each period
+- **Subject Average**: Average across all grading periods
+- **Predictive Grade**: Minimum grade needed in remaining terms (accounts for semester vs trimester)
+  - Automatically uses 2 periods for semester, 3 for trimester
 - **Academic Standing**: 5-level categorization (Excellent to Needs Improvement)
+- **Teacher Role**: Calculates CHED component weights and provides overall period grade to students
 
 ### Forms & Fields
 - Custom registration with grading structure selection
@@ -133,28 +131,45 @@ All 8 tests cover:
 - Dashboard and profile management
 - Authentication and authorization
 
+## How It Works: Student vs Teacher Role
+
+### Student Role
+- **Register** and select academic calendar (Semester or Trimester)
+- **Add Subjects & Goals** with target grades
+- **Record Period Grades** (Midterm, Endterm, or Prelim/Midterm/Endterm)
+  - Just enter the overall grade teachers give you for that period
+  - No need to break down components
+- **Monitor Progress** via dashboard and predictions
+- **Receive Alerts** when grades fall below goals
+
+### Teacher Role
+- **Calculate CHED Components**: Grade attendance, quizzes, assignments, exams (20% each typically)
+- **Combine Components**: Apply weights to calculate overall period grade (e.g., 85)
+- **Provide to Students**: Students enter the 85 as their Midterm grade
+- **Track in System**: Automatically aggregated for trending and predictions
+
+This separation makes the process simple for students while maintaining academic rigor through teacher evaluation.
+
+---
+
 ## Grading Periods by Academic Calendar
 
 ### Semester System (2 Terms per Year)
-- **Midterm**: Grades recorded at the middle of the semester
-- **Endterm**: Final grades at the end of the semester
-- **Grade Form**: Only shows Midterm and Endterm options
-- **Dashboard Chart**: Displays 2-period performance trend
-- **Predictive Calculations**: Computes based on 2 total periods
+- **Midterm**: Grade recorded at the middle of the semester (calculated by teacher from components)
+- **Endterm**: Final grade at the end of the semester (calculated by teacher from components)
+- **Predictive Calculation**: Needs reach target based on 2 total periods
 
 ### Trimester System (3 Terms per Year)
-- **Prelim**: Grades recorded in the first assessment period
-- **Midterm**: Grades recorded in the middle period
-- **Endterm**: Final grades at the end of the term
-- **Grade Form**: Shows all three period options (Prelim, Midterm, Endterm)
-- **Dashboard Chart**: Displays 3-period performance trend
-- **Predictive Calculations**: Computes based on 3 total periods
+- **Prelim**: Grade recorded in the first assessment period (calculated by teacher)
+- **Midterm**: Grade recorded in the middle period (calculated by teacher)
+- **Endterm**: Final grade at the end of the term (calculated by teacher)
+- **Predictive Calculation**: Needs reach target based on 3 total periods
 
-**Example Predictive Calculation:**
-- Semester student with 88 average in Midterm, target of 90
-  - Needs average of **92** in Endterm to reach 90 overall
-- Trimester student with two assessments completed (averages: 85 Prelim, 88 Midterm), target of 90
-  - Needs average of **93** in Endterm to reach 90 overall
+**Example:**
+- Semester student has Midterm grade of 88, target 90
+- To reach 90: Needs **92** average in Endterm
+- Trimester student has Prelim (85) and Midterm (88), target 90
+- To reach 90: Needs **93** average in Endterm
 
 
 
