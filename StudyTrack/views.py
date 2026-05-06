@@ -386,6 +386,8 @@ def data_management(request):
 	subjects = Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name')
 
 	subject_data = []
+	# Get period choices for this user so we can show columns for each grading period
+	period_choices = _get_period_choices(request.user)
 	for subject in subjects:
 		grades = subject.grades.all()
 		goals = subject.goals.filter(active=True)
@@ -420,6 +422,11 @@ def data_management(request):
 		prediction_info = None
 		if goal_obj:
 			prediction_info = _calculate_predictive_grade(subject, goal_obj)
+		# Build an ordered list of (code, label, latest_grade_obj) for the user's period choices
+		period_grade_pairs = []
+		for code, label in period_choices:
+			g = grades.filter(grading_period=code).order_by('-recorded_at').first()
+			period_grade_pairs.append((code, label, g))
 
 		subject_data.append({
 			'subject': subject,
@@ -431,11 +438,14 @@ def data_management(request):
 			'target_progress': target_progress,
 			'goals_count': goals.count(),
 			'prediction_info': prediction_info,
+			'period_grade_pairs': period_grade_pairs,
 		})
 
 	context = {
 		'subject_data': subject_data,
 		'total_subjects': len(subjects),
+		'period_choices': period_choices,
+		'grading_structure': StudentProfile.objects.get_or_create(user=request.user)[0].grading_structure,
 	}
 	return render(request, 'data_management.html', context)
 

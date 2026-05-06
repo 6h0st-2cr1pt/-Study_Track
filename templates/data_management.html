@@ -3,8 +3,8 @@
 {% block title %}Data Management | StudyTrack{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
+<div class="row">
+    <div class="col-12">
         <div class="card soft-shadow border-0">
             <div class="card-body p-4">
                 <h1 class="h4 section-title mb-1">Data Management</h1>
@@ -24,7 +24,10 @@
                             <thead>
                                 <tr>
                                     <th>Subject</th>
-                                    <th>Latest Grade</th>
+                                    {# Render grading period columns dynamically based on user's period choices #}
+                                    {% for code,label in period_choices %}
+                                        <th>{{ label }}</th>
+                                    {% endfor %}
                                     <th>Average</th>
                                     <th>Goal</th>
                                     <th>Status</th>
@@ -35,11 +38,21 @@
                                 {% for item in subject_data %}
                                 <tr>
                                     <td><strong>{{ item.subject.name }}</strong></td>
-                                    <td>
-                                        {% with latest=item.subject.grades.all.0 %}
-                                            {% if latest %}{{ latest.grade }}{% else %}—{% endif %}
-                                        {% endwith %}
-                                    </td>
+                                    {# Show latest grade for each defined grading period #}
+                                    {% for code,label,grade_obj in item.period_grade_pairs %}
+                                        <td>
+                                            {% if grade_obj %}
+                                                {{ grade_obj.grade }}
+                                            {% else %}
+                                                {# If grade missing, show the required minimum grade for remaining terms if available #}
+                                                {% if item.prediction_info and item.prediction_info.required %}
+                                                    <span class="badge bg-warning text-black">Need {{ item.prediction_info.required|floatformat:2 }}</span>
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
                                     <td>
                                         {% if item.average is not None %}{{ item.average }}{% else %}—{% endif %}
                                     </td>
@@ -72,8 +85,6 @@
                                                     <span class="badge bg-danger">Target no longer achievable</span>
                                                 {% elif item.prediction_info.status == 'ontrack' %}
                                                     <span class="badge bg-success">On track to pass</span>
-                                                {% elif item.prediction_info.status == 'achievable' %}
-                                                    <span class="badge bg-warning text-dark">Need {{ item.prediction_info.required }}</span>
                                                 {% elif item.prediction_info.status == 'met' %}
                                                     <span class="badge bg-success">Target met</span>
                                                 {% endif %}
