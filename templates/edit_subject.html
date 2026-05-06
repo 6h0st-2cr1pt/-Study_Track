@@ -4,11 +4,18 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-6 col-md-8">
+    <div class="col-lg-10 col-md-11">
         <div class="card soft-shadow border-0">
             <div class="card-body p-4">
-                <h1 class="h4 section-title mb-1">Edit Subject</h1>
-                <p class="text-muted mb-3">Update the subject name</p>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h1 class="h4 section-title mb-1">Edit Subject</h1>
+                        <p class="text-muted mb-0">Manage subject details, grades, and goals.</p>
+                    </div>
+                    <div>
+                        <a href="{% url 'data_management' %}" class="btn btn-outline-secondary">Back to Data Management</a>
+                    </div>
+                </div>
 
                 {% if messages %}
                     <div class="mb-3">
@@ -18,30 +25,89 @@
                     </div>
                 {% endif %}
 
-                <form method="post">
-                    {% csrf_token %}
+                <div class="row">
+                    <div class="col-lg-6">
+                        <h5 class="mb-2">Subject</h5>
+                        <form method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label" for="name">Subject Name</label>
+                                <input type="text" id="name" name="name" value="{{ subject.name }}" class="form-control" required>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">Save Subject</button>
+                                <a href="{% url 'delete_subject' subject.pk %}" class="btn btn-outline-danger">Delete Subject</a>
+                            </div>
+                        </form>
 
-                    <div class="mb-3">
-                        <label class="form-label" for="subject-name">Subject Name</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            id="subject-name"
-                            name="name"
-                            value="{{ subject.name }}"
-                            required
-                            placeholder="Enter subject name"
-                        >
+                        <hr class="my-4">
+
+                        <h5 class="mb-2">Goals</h5>
+                        {% if subject.goals.all %}
+                            <ul class="list-group mb-3">
+                                {% for g in subject.goals.all %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ g.target_grade }}</strong>
+                                            {% if g.active %}
+                                                <span class="badge bg-success ms-2">Active</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary ms-2">Inactive</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="btn-group">
+                                            <a href="{% url 'edit_goal' g.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                            <a href="{% url 'delete_goal' g.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted">No goals yet. <a href="{% url 'add_goal' %}">Add a goal</a>.</p>
+                        {% endif %}
+
+                        <a href="{% url 'add_goal' %}" class="btn btn-outline-primary">Add Subject & Goal</a>
+
                     </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                        <a href="{% url 'data_management' %}" class="btn btn-outline-secondary">Cancel</a>
+                    <div class="col-lg-6">
+                        <h5 class="mb-2">Grades</h5>
+                        {% if subject.grades.all %}
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Period</th>
+                                            <th>Grade</th>
+                                            <th>Notes</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for gr in subject.grades.all %}
+                                            <tr>
+                                                <td>{{ gr.get_grading_period_display }}</td>
+                                                <td>{{ gr.grade }}</td>
+                                                <td class="text-muted">{{ gr.notes|default:'-' }}</td>
+                                                <td>
+                                                    <a href="{% url 'edit_grade' gr.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                                    <a href="{% url 'delete_grade' gr.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No grades recorded yet for this subject.</p>
+                        {% endif %}
+
+                        <a href="{% url 'add_grade' %}" class="btn btn-outline-primary mt-3">Record Grade</a>
                     </div>
-                </form>
+                </div>
+
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
-

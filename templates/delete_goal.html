@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Goal | StudyTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <div class="card soft-shadow border-0 border-danger">
+            <div class="card-body p-4">
+                <h1 class="h4 section-title mb-3" style="color: #ef4444;">Delete Goal</h1>
+
+                <div class="alert alert-danger" role="alert">
+                    <strong>Warning!</strong> This action cannot be undone.
+                </div>
+
+                <p>You are about to delete the goal for <strong>{{ goal.subject.name }}</strong> with target <strong>{{ goal.target_grade }}</strong>.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-danger">Yes, Delete Goal</button>
+                        <a href="{% url 'edit_subject' goal.subject.pk %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

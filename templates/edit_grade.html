@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Grade | StudyTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+        <div class="card soft-shadow border-0">
+            <div class="card-body p-4">
+                <h1 class="h4 section-title mb-1">Edit Grade</h1>
+                <p class="text-muted mb-3">Update the recorded grade</p>
+
+                {% if messages %}
+                    <div class="mb-3">
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label">Subject</label>
+                        <input type="text" class="form-control" value="{{ grade.subject.name }}" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="grading_period">Grading Period</label>
+                        <select name="grading_period" id="grading_period" class="form-select">
+                            {% for code, label in period_choices %}
+                                <option value="{{ code }}" {% if grade.grading_period == code %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="grade">Grade (0-100)</label>
+                        <input type="number" step="0.01" min="0" max="100" name="grade" id="grade" class="form-control" value="{{ grade.grade }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="notes">Notes</label>
+                        <textarea name="notes" id="notes" rows="3" class="form-control">{{ grade.notes }}</textarea>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" type="submit">Save Grade</button>
+                        <a href="{% url 'edit_subject' grade.subject.pk %}" class="btn btn-outline-secondary">Back</a>
+                        <a href="{% url 'delete_grade' grade.pk %}" class="btn btn-outline-danger">Delete</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

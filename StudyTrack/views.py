@@ -413,3 +413,69 @@ def delete_subject(request, pk):
 
 	context = {'subject': subject}
 	return render(request, 'delete_subject.html', context)
+
+
+@login_required
+def edit_grade(request, pk):
+	grade = get_object_or_404(GradeEntry, pk=pk, user=request.user)
+	if request.method == 'POST':
+		# allow editing grading_period, grade, notes
+		grading_period = request.POST.get('grading_period')
+		grade_value = request.POST.get('grade')
+		notes = request.POST.get('notes', '')
+		if grading_period and grade_value is not None:
+			try:
+				grade.grade = Decimal(grade_value)
+				grade.grading_period = grading_period
+				grade.notes = notes
+				grade.save(update_fields=['grade', 'grading_period', 'notes'])
+				messages.success(request, 'Grade updated successfully.')
+				return redirect('edit_subject', pk=grade.subject.pk)
+			except Exception:
+				messages.error(request, 'Invalid grade value.')
+
+	period_choices = _get_period_choices(request.user)
+	context = {'grade': grade, 'period_choices': period_choices}
+	return render(request, 'edit_grade.html', context)
+
+
+@login_required
+def delete_grade(request, pk):
+	grade = get_object_or_404(GradeEntry, pk=pk, user=request.user)
+	subject_pk = grade.subject.pk
+	if request.method == 'POST':
+		grade.delete()
+		messages.success(request, 'Grade deleted successfully.')
+		return redirect('edit_subject', pk=subject_pk)
+	return render(request, 'delete_grade.html', {'grade': grade})
+
+
+@login_required
+def edit_goal(request, pk):
+	goal = get_object_or_404(Goal, pk=pk, user=request.user)
+	if request.method == 'POST':
+		target = request.POST.get('target_grade')
+		active = request.POST.get('active') == 'on'
+		try:
+			goal.target_grade = Decimal(target)
+			goal.active = active
+			goal.save(update_fields=['target_grade', 'active'])
+			messages.success(request, 'Goal updated successfully.')
+			return redirect('edit_subject', pk=goal.subject.pk)
+		except Exception:
+			messages.error(request, 'Invalid target grade.')
+
+	context = {'goal': goal}
+	return render(request, 'edit_goal.html', context)
+
+
+@login_required
+def delete_goal(request, pk):
+	goal = get_object_or_404(Goal, pk=pk, user=request.user)
+	subject_pk = goal.subject.pk
+	if request.method == 'POST':
+		goal.delete()
+		messages.success(request, 'Goal deleted successfully.')
+		return redirect('edit_subject', pk=subject_pk)
+	return render(request, 'delete_goal.html', {'goal': goal})
+
