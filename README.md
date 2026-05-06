@@ -4,9 +4,13 @@ StudyTrack is a Django-based academic progress monitoring system for college stu
 
 ## Key Features
 
-### 1. **Academic Calendar Selection**
+### 1. **Academic Calendar Selection with Dynamic Period Configuration**
 - Students choose between **Semester** (2 terms/year) or **Trimester** (3 terms/year) structures during registration
-- Dynamically determines grading component organization and calculation methods
+- **Dynamically determines grading periods** in the Add Grade form:
+  - **Semester Students**: See only **Midterm** and **Endterm** periods
+  - **Trimester Students**: See **Prelim**, **Midterm**, and **Endterm** periods
+- Adapts period calculations for predictive analytics based on academic calendar
+- Dashboard charts dynamically show only relevant grading periods
 
 ### 2. **CHED Grading Components**
 Supports standard CHED grading components with configurable weights:
@@ -43,12 +47,14 @@ Supports standard CHED grading components with configurable weights:
 
 ### 7. **Interactive Dashboard**
 - Overall academic standing with performance categories
+- **Dynamic Period Chart**: Shows only grading periods relevant to user's academic calendar:
+  - Semester students: Chart shows Midterm and Endterm performance
+  - Trimester students: Chart shows Prelim, Midterm, and Endterm performance
 - Subject summary cards showing:
   - Latest grade
   - CHED weighted average
   - Progress toward goals
-  - Minimum grade required in remaining terms
-- Period-based performance chart (Prelim, Midterm, Finals, Project)
+  - Minimum grade required in remaining terms (based on remaining periods)
 - Recent grades list
 - Recent notifications preview
 
@@ -66,9 +72,12 @@ Supports standard CHED grading components with configurable weights:
 
 ### Recording Grades
 1. Toggle to **"Add Grade"** panel on the same page
-2. Select subject, grading period (Prelim/Midterm/Finals/Project), and CHED component
-3. Enter score (0-100) and optional weight percentage
-4. System automatically generates smart notifications
+2. Select subject, **grading period** (automatically filtered based on your academic calendar!):
+   - **Semester**: Midterm, Endterm
+   - **Trimester**: Prelim, Midterm, Endterm
+3. Select CHED component (Attendance, Quiz, Assignment, etc.)
+4. Enter score (0-100) and optional weight percentage
+5. System automatically generates smart notifications
 
 ### Monitoring Progress
 1. View **Dashboard** for comprehensive performance overview
@@ -88,6 +97,8 @@ Supports standard CHED grading components with configurable weights:
 ### Calculations
 - **CHED Weighted Average**: Considers component weights within grading periods
 - **Predictive Grade**: Machine learning-ready calculation for remaining terms
+  - Automatically accounts for student's academic calendar (2 terms for semester, 3 for trimester)
+  - Calculates minimum grade needed based on completed vs remaining periods
 - **Academic Standing**: 5-level categorization (Excellent to Needs Improvement)
 
 ### Forms & Fields
@@ -122,15 +133,30 @@ All 8 tests cover:
 - Dashboard and profile management
 - Authentication and authorization
 
-## CHED Grading System Notes
+## Grading Periods by Academic Calendar
 
-- **1.0 - 1.5**: Excellent (90-100)
-- **1.5 - 2.0**: Very Good (85-89)
-- **2.0 - 2.5**: Good (80-84)
-- **2.5 - 3.0**: Fair (75-79)
-- **3.0+**: Needs Improvement (<75)
+### Semester System (2 Terms per Year)
+- **Midterm**: Grades recorded at the middle of the semester
+- **Endterm**: Final grades at the end of the semester
+- **Grade Form**: Only shows Midterm and Endterm options
+- **Dashboard Chart**: Displays 2-period performance trend
+- **Predictive Calculations**: Computes based on 2 total periods
 
-The system uses 0-100 point scale internally for consistency and flexibility across institutions.
+### Trimester System (3 Terms per Year)
+- **Prelim**: Grades recorded in the first assessment period
+- **Midterm**: Grades recorded in the middle period
+- **Endterm**: Final grades at the end of the term
+- **Grade Form**: Shows all three period options (Prelim, Midterm, Endterm)
+- **Dashboard Chart**: Displays 3-period performance trend
+- **Predictive Calculations**: Computes based on 3 total periods
+
+**Example Predictive Calculation:**
+- Semester student with 88 average in Midterm, target of 90
+  - Needs average of **92** in Endterm to reach 90 overall
+- Trimester student with two assessments completed (averages: 85 Prelim, 88 Midterm), target of 90
+  - Needs average of **93** in Endterm to reach 90 overall
+
+
 
 ## Technology Stack
 - **Backend**: Django 4.0+, Python 3.10+
