@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Data Management | StudyTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card soft-shadow border-0">
+            <div class="card-body p-4">
+                <h1 class="h4 section-title mb-1">Data Management</h1>
+                <p class="text-muted mb-4">View, edit, and manage your subjects and grades</p>
+
+                {% if messages %}
+                    <div class="mb-3">
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} mb-2" role="alert">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if subject_data %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%;">Subject</th>
+                                    <th style="width: 15%;">Average</th>
+                                    <th style="width: 15%;">Target</th>
+                                    <th style="width: 15%;">Grades</th>
+                                    <th style="width: 25%;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in subject_data %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.subject.name }}</strong>
+                                    </td>
+                                    <td>
+                                        {% if item.average %}
+                                            <span class="badge" style="background-color: #f97316;">{{ item.average }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.target_grade %}
+                                            <span>{{ item.target_grade }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.grades_count }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'edit_subject' item.subject.id %}" class="btn btn-sm btn-outline-primary" title="Edit subject">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <a href="{% url 'delete_subject' item.subject.id %}" class="btn btn-sm btn-outline-danger" title="Delete subject">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-top">
+                        <p class="text-muted mb-0">
+                            <strong>Total Subjects:</strong> {{ total_subjects }}
+                        </p>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info" role="alert">
+                        <strong>No subjects yet.</strong>
+                        <a href="{% url 'add_goal' %}">Start by adding a subject and goal.</a>
+                    </div>
+                {% endif %}
+
+                <div class="mt-4">
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+                    <a href="{% url 'add_goal' %}" class="btn btn-primary">Add Subject</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('input, select, textarea').forEach((field) => field.classList.add('form-control'));
+</script>
+{% endblock %}
+

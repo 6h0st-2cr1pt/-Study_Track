@@ -335,3 +335,81 @@ def mark_notification_read(request, pk):
 	messages.success(request, 'Notification marked as read.')
 	return redirect('notifications')
 
+
+@login_required
+def data_management(request):
+	"""Display all subjects with options to edit or delete."""
+	subjects = Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name')
+
+	subject_data = []
+	for subject in subjects:
+		grades = subject.grades.all()
+		goals = subject.goals.filter(active=True)
+
+		# Calculate average
+		if grades:
+			average = sum(float(g.grade) for g in grades) / len(grades)
+			average = round(average, 2)
+		else:
+			average = None
+
+		# Get target grade from active goal
+		target_grade = None
+		if goals:
+			target_grade = goals.first().target_grade
+
+		subject_data.append({
+			'subject': subject,
+			'grades_count': grades.count(),
+			'average': average,
+			'target_grade': target_grade,
+			'goals_count': goals.count(),
+		})
+
+	context = {
+		'subject_data': subject_data,
+		'total_subjects': len(subjects),
+	}
+	return render(request, 'data_management.html', context)
+
+
+@login_required
+def edit_subject(request, pk):
+	"""Edit subject name."""
+	subject = get_object_or_404(Subject, pk=pk, user=request.user)
+
+	if request.method == 'POST':
+		new_name = request.POST.get('name', '').strip()
+		if new_name:
+			# Check if name already exists for this user
+			existing = Subject.objects.filter(user=request.user, name__iexact=new_name).exclude(pk=pk).first()
+			if existing:
+				messages.error(request, f'A subject named "{new_name}" already exists.')
+			else:
+				subject.name = ' '.join(new_name.split())  # Normalize spacing
+				subject.save(update_fields=['name'])
+				messages.success(request, f'Subject "{subject.name}" updated successfully.')
+				return redirect('data_management')
+		else:
+			messages.error(request, 'Subject name cannot be empty.')
+
+	context = {'subject': subject}
+	return render(request, 'edit_subject.html', context)
+
+
+@login_required
+def delete_subject(request, pk):
+	"""Delete subject and all associated data."""
+	subject = get_object_or_404(Subject, pk=pk, user=request.user)
+	subject_name = subject.name
+
+	if request.method == 'POST':
+		# Delete all grades and goals associated with this subject
+		subject.grades.all().delete()
+		subject.goals.all().delete()
+		subject.delete()
+		messages.success(request, f'Subject "{subject_name}" and all associated data have been deleted.')
+		return redirect('data_management')
+
+	context = {'subject': subject}
+	return render(request, 'delete_subject.html', context)

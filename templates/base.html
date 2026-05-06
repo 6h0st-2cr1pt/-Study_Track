@@ -296,6 +296,12 @@
                         <span>Add Subject and Goal</span>
                     </span>
                 </a>
+                <a href="{% url 'data_management' %}" class="{% if request.resolver_match.url_name == 'data_management' %}active{% endif %}">
+                    <span class="sidebar-link-content">
+                        <img class="sidebar-icon" src="https://cdn-icons-png.flaticon.com/512/1995/1995466.png" alt="">
+                        <span>Data Management</span>
+                    </span>
+                </a>
                 <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
                     <span class="sidebar-link-content">
                         <img class="sidebar-icon" src="https://cdn-icons-png.flaticon.com/512/3239/3239941.png" alt="">
