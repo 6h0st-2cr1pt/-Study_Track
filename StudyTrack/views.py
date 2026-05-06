@@ -283,6 +283,8 @@ def dashboard(request):
 		'unread_count': unread_count,
 		'recent_grades': grades.select_related('subject')[:10],
 		'total_goals': goals.count(),
+		'total_subjects': Subject.objects.filter(user=request.user).count(),
+		'period_choices': period_choices,
 	}
 	return render(request, 'dashboard.html', context)
 

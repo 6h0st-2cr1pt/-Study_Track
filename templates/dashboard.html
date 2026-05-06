@@ -41,7 +41,7 @@
                     </div>
                     <a class="btn btn-sm btn-primary" href="{% url 'add_grade' %}">Add Grade</a>
                 </div>
-                <canvas id="gradesChart" height="120"></canvas>
+                <canvas id="gradesChart" height="220" style="min-height: 220px;"></canvas>
             </div>
         </div>
     </div>
@@ -63,71 +63,19 @@
 </div>
 
 <div class="card soft-shadow border-0 mb-4">
-    <div class="card-body">
-        <h3 class="h5 section-title mb-3">Subject Performance</h3>
+    <div class="card-body p-4">
+        <h3 class="h5 section-title mb-1">Subject Performance</h3>
+        <p class="text-muted mb-4">View your subjects and their performance across grading periods.</p>
         {% if subject_summaries %}
-            <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Latest Grade</th>
-                            <th>Average</th>
-                            <th>Goal</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in subject_summaries %}
-                            <tr>
-                                <td>{{ item.subject.name }}</td>
-                                <td>{% if item.latest_grade %}{{ item.latest_grade.grade }}{% else %}—{% endif %}</td>
-                                <td>{% if item.average is not None %}{{ item.average }}{% else %}—{% endif %}</td>
-                                <td>
-                                    {% if item.goal %}
-                                        {{ item.goal.target_grade }}
-                                        {% if item.target_progress is not None %}
-                                            <div class="progress mt-1" style="height: 6px;">
-                                                <div class="progress-bar" role="progressbar" style="width: {{ item.target_progress }}%;"></div>
-                                            </div>
-                                        {% endif %}
-                                    {% else %}
-                                        —
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if item.goal and item.gap is not None %}
-                                        {% if item.gap >= 0 %}
-                                            <span class="badge bg-success">On track</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Below target</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-secondary">No goal</span>
-                                    {% endif %}
-
-                                    {% if item.predicted_info %}
-                                        <div class="mt-2">
-                                            {% if item.predicted_info.status == 'impossible' %}
-                                                <span class="badge bg-danger">Target no longer achievable</span>
-                                                <div class="small text-muted">Adjust goal — aim for passing (≥75) instead.</div>
-                                            {% elif item.predicted_info.status == 'ontrack' %}
-                                                <span class="badge bg-success">On track to pass</span>
-                                            {% elif item.predicted_info.status == 'achievable' %}
-                                                <span class="badge bg-warning text-dark">Needs {{ item.predicted_info.required }}</span>
-                                            {% elif item.predicted_info.status == 'met' %}
-                                                <span class="badge bg-success">Target met</span>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            {% include 'includes/subject_table.html' with items=subject_summaries period_choices=period_choices show_actions=False %}
+            <div class="mt-4 pt-3 border-top">
+                <p class="text-muted mb-0"><strong>Total Subjects:</strong> {{ total_subjects }}</p>
             </div>
         {% else %}
-            <p class="mb-0 text-muted">No subjects yet. Start by adding your first subject and goal.</p>
+            <div class="alert alert-info" role="alert">
+                <strong>No subjects yet.</strong>
+                <a href="{% url 'add_goal' %}">Start by adding a subject and goal.</a>
+            </div>
         {% endif %}
     </div>
 </div>
