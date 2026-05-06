@@ -37,9 +37,7 @@ class StudentRegistrationForm(UserCreationForm):
 class GradeEntryForm(forms.Form):
 	subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
 	grading_period = forms.ChoiceField(label='Grading Period')
-	component = forms.ChoiceField(choices=GradeEntry.COMPONENT_CHOICES, initial=GradeEntry.QUIZ, label='Grade Component (CHED)')
-	grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, label='Score (0-100)')
-	component_weight = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, initial=1.0, label='Component Weight %', required=False)
+	grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, label='Grade (0-100)')
 	notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
 
 	def __init__(self, *args, user=None, **kwargs):

@@ -51,12 +51,12 @@ def _academic_standing(average):
 
 
 def _calculate_ched_weighted_average(subject):
-	"""Calculate CHED weighted average for a subject considering component weights."""
+	"""Calculate average for a subject - simple average since teachers handle component weighting."""
 	grades = subject.grades.all()
 	if not grades:
 		return None
 
-	# Group by grading period and calculate component weights
+	# Group by grading period and calculate simple averages
 	period_averages = {}
 	for period in GradeEntry.PERIOD_CHOICES:
 		period_code = period[0]
@@ -64,16 +64,9 @@ def _calculate_ched_weighted_average(subject):
 		if not period_grades:
 			continue
 
-		total_weighted_sum = Decimal('0')
-		total_weights = Decimal('0')
-
-		for grade_entry in period_grades:
-			weight = grade_entry.component_weight if grade_entry.component_weight else Decimal('1')
-			total_weighted_sum += grade_entry.grade * weight
-			total_weights += weight
-
-		if total_weights > 0:
-			period_averages[period_code] = float(total_weighted_sum / total_weights)
+		# Simple average of grades in this period
+		total_sum = sum(float(grade.grade) for grade in period_grades)
+		period_averages[period_code] = total_sum / len(period_grades)
 
 	# Calculate overall average across all periods
 	if period_averages:
@@ -267,9 +260,7 @@ def add_grade(request):
 				user=request.user,
 				subject=subject,
 				grading_period=form.cleaned_data['grading_period'],
-				component=form.cleaned_data['component'],
 				grade=form.cleaned_data['grade'],
-				component_weight=form.cleaned_data.get('component_weight') or Decimal('1.0'),
 				notes=form.cleaned_data['notes'],
 			)
 

@@ -98,13 +98,15 @@ class GradeEntry(models.Model):
 		decimal_places=2,
 		validators=[MinValueValidator(0), MaxValueValidator(100)],
 	)
-	component = models.CharField(max_length=20, choices=COMPONENT_CHOICES, default=QUIZ, help_text='CHED grading component')
+	component = models.CharField(max_length=20, choices=COMPONENT_CHOICES, default=QUIZ, blank=True, null=True, help_text='CHED grading component (optional)')
 	component_weight = models.DecimalField(
 		max_digits=5,
 		decimal_places=2,
 		default=1.0,
+		blank=True,
+		null=True,
 		validators=[MinValueValidator(0), MaxValueValidator(100)],
-		help_text='Weight of this component (e.g., 20 means 20%)'
+		help_text='Weight of this component (optional)'
 	)
 	notes = models.TextField(blank=True)
 	recorded_at = models.DateTimeField(auto_now_add=True)
