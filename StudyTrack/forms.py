@@ -9,6 +9,9 @@ class StudentRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
     first_name = forms.CharField(max_length=150, required=False)
     last_name = forms.CharField(max_length=150, required=False)
+    institution = forms.CharField(max_length=150, required=False)
+    program = forms.CharField(max_length=150, required=False)
+    year_level = forms.CharField(max_length=50, required=False)
     grading_structure = forms.ChoiceField(
         choices=StudentProfile.GRADING_STRUCTURE_CHOICES,
         initial=StudentProfile.SEMESTER,
@@ -29,8 +32,12 @@ class StudentRegistrationForm(UserCreationForm):
             user.save()
             # Update the student profile with grading structure
             profile, _ = StudentProfile.objects.get_or_create(user=user)
-            profile.grading_structure = self.cleaned_data['grading_structure']
-            profile.save(update_fields=['grading_structure'])
+            profile.grading_structure = self.cleaned_data.get('grading_structure')
+            # Save additional profile fields provided during registration
+            profile.institution = self.cleaned_data.get('institution', '')
+            profile.program = self.cleaned_data.get('program', '')
+            profile.year_level = self.cleaned_data.get('year_level', '')
+            profile.save(update_fields=['grading_structure', 'institution', 'program', 'year_level'])
         return user
 
 

@@ -238,9 +238,10 @@ def dashboard(request):
 	goals_by_subject_id = {goal.subject_id: goal for goal in goals}
 
 	subject_summaries = []
+	# Build per-subject summaries compatible with includes/subject_table.html
 	for subject in Subject.objects.filter(user=request.user).prefetch_related('grades').order_by('name'):
-		subject_grades = list(subject.grades.all())
-		latest_grade = subject_grades[0] if subject_grades else None
+		# Latest grade (GradeEntry ordering ensures newest first)
+		latest_grade = subject.grades.first()
 
 		# Use CHED weighted average
 		subject_average = _calculate_ched_weighted_average(subject)
@@ -248,27 +249,34 @@ def dashboard(request):
 		goal = goals_by_subject_id.get(subject.id)
 		target_progress = None
 		gap = None
-		predicted_info = None
+		prediction_info = None
 
 		if goal and latest_grade is not None:
-			gap = round(float(latest_grade.grade) - float(goal.target_grade), 2)
-			if float(goal.target_grade) > 0:
-				target_progress = min(round((float(latest_grade.grade) / float(goal.target_grade)) * 100, 1), 100)
-			# Get predictive info needed
-			predicted_info = _calculate_predictive_grade(subject, goal)
+			try:
+				gap = round(float(latest_grade.grade) - float(goal.target_grade), 2)
+				if float(goal.target_grade) > 0:
+					target_progress = min(round((float(latest_grade.grade) / float(goal.target_grade)) * 100, 1), 100)
+			except Exception:
+				gap = None
+			# Get predictive info
+			prediction_info = _calculate_predictive_grade(subject, goal)
 
-		subject_summaries.append(
-			{
-				'subject': subject,
-				'latest_grade': latest_grade,
-				'average': subject_average,
-				'goal': goal,
-				'gap': gap,
-				'target_progress': target_progress,
-				'predicted_info': predicted_info,
-				'prediction_needed': (predicted_info is not None and isinstance(predicted_info, dict) and predicted_info.get('required') is not None),
-			}
-		)
+		# Build ordered list of (code, label, latest_grade_obj) per period for this user
+		period_grade_pairs = []
+		for code, label in period_choices:
+			g = subject.grades.filter(grading_period=code).order_by('-recorded_at').first()
+			period_grade_pairs.append((code, label, g))
+
+		subject_summaries.append({
+			'subject': subject,
+			'latest_grade': latest_grade,
+			'average': subject_average,
+			'goal': goal,
+			'gap': gap,
+			'target_progress': target_progress,
+			'prediction_info': prediction_info,
+			'period_grade_pairs': period_grade_pairs,
+		})
 
 	notifications = request.user.notifications.all()[:5]
 	unread_count = request.user.notifications.filter(is_read=False).count()
