@@ -42,24 +42,24 @@ class StudentRegistrationForm(UserCreationForm):
 
 
 class GradeEntryForm(forms.Form):
-	subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
-	grading_period = forms.ChoiceField(label='Grading Period')
-	grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, label='Grade (0-100)')
-	notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
+    subject = forms.ModelChoiceField(label='Subject', queryset=Subject.objects.none(), empty_label='Select a subject')
+    grading_period = forms.ChoiceField(label='Grading Period')
+    grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5, label='Grade (0-100)')
+    notes = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), required=False)
 
-	def __init__(self, *args, user=None, **kwargs):
-		super().__init__(*args, **kwargs)
-		if user is not None:
-			self.fields['subject'].queryset = Subject.objects.filter(user=user).order_by('name')
-			
-			# Get user's profile to determine grading structure
-			profile, _ = StudentProfile.objects.get_or_create(user=user)
-			if profile.grading_structure == StudentProfile.TRIMESTER:
-				# Trimester: Prelim, Midterm, Endterm
-				self.fields['grading_period'].choices = GradeEntry.TRIMESTER_PERIOD_CHOICES
-			else:
-				# Semester: Midterm, Endterm
-				self.fields['grading_period'].choices = GradeEntry.SEMESTER_PERIOD_CHOICES
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields['subject'].queryset = Subject.objects.filter(user=user).order_by('name')
+
+            # Get user's profile to determine grading structure
+            profile, _ = StudentProfile.objects.get_or_create(user=user)
+            if profile.grading_structure == StudentProfile.TRIMESTER:
+                # Trimester: Prelim, Midterm, Endterm
+                self.fields['grading_period'].choices = GradeEntry.TRIMESTER_PERIOD_CHOICES
+            else:
+                # Semester: Midterm, Endterm
+                self.fields['grading_period'].choices = GradeEntry.SEMESTER_PERIOD_CHOICES
 
 
 class GoalForm(forms.Form):

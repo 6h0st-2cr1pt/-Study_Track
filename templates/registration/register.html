@@ -3,31 +3,32 @@
 {% block content %}
 <style>
 /* Registration page theme overrides - ensure good contrast on dark backgrounds */
-.register-card .card-body { color: #ffffff; }
+.register-card .card-body { color: #ffffff; overflow: hidden; }
 .register-card .section-title { color: #ffffff; }
 .register-card .text-muted { color: rgba(255,255,255,0.75) !important; }
-.register-card .form-label { color: rgba(255,255,255,0.95); }
-.register-card .form-text { color: rgba(255,255,255,0.75); }
+.register-card .form-label { color: rgba(255,255,255,0.95); font-size: 0.9rem; font-weight: 500; margin-bottom: 0.4rem; }
+.register-card .form-text { color: rgba(255,255,255,0.75); font-size: 0.8rem; }
 .register-card .input-group-text { color: rgba(255,255,255,0.85); background: transparent; }
-.register-card .form-control { background: rgba(255,255,255,0.03); color: #ffffff; border: 1px solid rgba(255,255,255,0.12); box-shadow: none; transition: all 0.2s ease; }
+.register-card .form-control { background: rgba(255,255,255,0.03); color: #ffffff; border: 1px solid rgba(255,255,255,0.12); box-shadow: none; transition: all 0.2s ease; height: 38px; }
 .register-card .form-control:focus { background: rgba(255,255,255,0.06); border-color: #f97316; color: #ffffff; box-shadow: 0 0 0 0.2rem rgba(249, 115, 22, 0.15); }
 .register-card .form-control::placeholder { color: rgba(255,255,255,0.6); }
-.register-card .btn-primary { background-color: #f97316; border-color: #f97316; color: #fff; transition: all 0.2s ease; }
+.register-card select.form-control { height: auto; padding: 0.5rem 0.75rem; }
+.register-card .btn-primary { background-color: #f97316; border-color: #f97316; color: #fff; transition: all 0.2s ease; font-weight: 500; }
 .register-card .btn-primary:hover { background-color: #ea6317; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3); }
-.register-card .btn-outline-primary { border-color: #f97316; color: #f97316; transition: all 0.2s ease; }
+.register-card .btn-outline-primary { border-color: #f97316; color: #f97316; transition: all 0.2s ease; font-weight: 500; }
 .register-card .btn-outline-primary:hover { background-color: #f97316; color: #fff; }
-.register-card .btn-outline-secondary { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); transition: all 0.2s ease; }
+.register-card .btn-outline-secondary { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); transition: all 0.2s ease; font-weight: 500; }
 .register-card .btn-outline-secondary:hover { border-color: rgba(255,255,255,0.6); color: #ffffff; }
 
 /* Progress bar styling */
-.progress-indicator { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; padding: 0 1rem; }
+.progress-indicator { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0 0.5rem; }
 .progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
 .progress-step:not(:last-child)::after { content: ''; position: absolute; top: 20px; left: 50%; width: 100%; height: 2px; background: rgba(255,255,255,0.1); z-index: 0; }
 .progress-step.active:not(:last-child)::after { background: #f97316; animation: fillLine 0.6s ease forwards; }
 .progress-circle { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); transition: all 0.3s ease; position: relative; z-index: 1; }
 .progress-step.active .progress-circle { background: #f97316; color: #ffffff; border-color: #f97316; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15); animation: popIn 0.4s ease; }
 .progress-step.completed .progress-circle { background: #4ade80; color: #ffffff; border-color: #4ade80; }
-.progress-label { margin-top: 0.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.7); text-align: center; }
+.progress-label { margin-top: 0.25rem; font-size: 0.75rem; color: rgba(255,255,255,0.7); text-align: center; }
 .progress-step.active .progress-label { color: #f97316; font-weight: 600; }
 
 /* Step transition animations */
@@ -51,6 +52,8 @@
     opacity: 1;
     display: block !important;
 }
+.step h3 { font-size: 1.125rem; margin-bottom: 0.5rem; font-weight: 600; }
+.step > p { margin-bottom: 1.25rem; }
 
 @keyframes popIn {
   0% { transform: scale(0.8); }
@@ -63,14 +66,15 @@
 }
 
 @media (max-width: 767.98px) {
-  .register-card .card-body { padding: 1rem; }
+  .register-card .card-body { padding: 1.25rem; }
   .progress-indicator { padding: 0; margin-bottom: 1.5rem; }
   .progress-circle { width: 36px; height: 36px; font-size: 0.875rem; }
+  .step { min-height: 180px; }
 }
 </style>
 <div class="d-flex align-items-center justify-content-center" style="min-height:100vh; padding: 18px;">
-    <div style="width:100%; max-width:1100px;">
-        <div class="card soft-shadow border-0 overflow-hidden register-card" style="max-height:calc(100vh - 36px);">
+    <div style="width:100%; max-width:1000px;">
+        <div class="card soft-shadow border-0 overflow-hidden register-card" style="height:800px;">
             <div class="row g-0">
                 <div class="col-md-3 d-none d-md-flex align-items-center" style="background: linear-gradient(180deg,#f97316 0%, #fb923c 100%);">
                     <div class="p-3 text-center w-100" style="padding-left:1.25rem;padding-right:1.25rem;">
@@ -86,16 +90,16 @@
                     </div>
                 </div>
                 <div class="col-md-9">
-                    <div class="card-body p-3" style="display:flex;flex-direction:column;justify-content:center;min-height:240px;">
-                        <h2 class="h6 section-title mb-2">Sign up</h2>
-                        <p class="text-muted mb-2">Fill the form below to get started — it only takes a minute.</p>
+                    <div class="card-body p-4" style="display:flex;flex-direction:column;height:800px;position:relative;">
+                        <h2 class="h6 section-title mb-1">Sign up</h2>
+                        <p class="text-muted mb-3" style="font-size:0.875rem;">Fill the form below to get started — it only takes a minute.</p>
 
-                        <form method="post" id="multiStepRegisterForm">
+                        <form method="post" id="multiStepRegisterForm" style="display:flex;flex-direction:column;overflow:hidden;flex:1;">
                             {% csrf_token %}
                             {{ form.non_field_errors }}
 
                             <!-- Progress indicator with circles and line -->
-                            <div class="progress-indicator mb-4">
+                            <div class="progress-indicator">
                                 <div class="progress-step active" data-step="1">
                                     <div class="progress-circle">1</div>
                                     <div class="progress-label">Personal</div>
@@ -110,76 +114,79 @@
                                 </div>
                             </div>
 
-                            <!-- Step 1: Personal (Name) -->
-                            <div class="step" data-step="1">
-                                <h3 class="h6 mb-2">Tell us your name</h3>
-                                <p class="text-muted small mb-3">Let's start with your personal information.</p>
-                                <div class="row gx-2">
-                                    {% for field in form.visible_fields %}
-                                        {% if field.name == 'first_name' or field.name == 'last_name' %}
-                                            <div class="col-12 col-md-6 mb-2">
-                                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">👤</span>
-                                                    {{ field }}
+                            <!-- Steps container with absolute positioning -->
+                            <div style="position:relative;flex:1;min-height:400px;max-height:500px;">
+                                <!-- Step 1: Personal (Name) -->
+                                <div class="step" data-step="1" style="position:absolute;top:0;left:0;right:0;width:100%;">
+                                    <h3 class="h6 mb-1">Tell us your name</h3>
+                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Let's start with your personal information.</p>
+                                    <div class="row gx-2">
+                                        {% for field in form.visible_fields %}
+                                            {% if field.name == 'first_name' or field.name == 'last_name' %}
+                                                <div class="col-12 col-md-6 mb-2">
+                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">👤</span>
+                                                        {{ field }}
+                                                    </div>
+                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
                                                 </div>
-                                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: School Info -->
+                                <div class="step d-none" data-step="2" style="position:absolute;top:0;left:0;right:0;width:100%;">
+                                    <h3 class="h6 mb-1">Your school information</h3>
+                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Help us understand your academic calendar.</p>
+                                    <div class="row gx-2">
+                                        {% for field in form.visible_fields %}
+                                            {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' or field.name == 'grading_structure' %}
+                                                <div class="col-12 col-md-6 mb-2">
+                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">🏫</span>
+                                                        {{ field }}
+                                                    </div>
+                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Account (Username & Password) -->
+                                <div class="step d-none" data-step="3" style="position:absolute;top:0;left:0;right:0;width:100%;">
+                                    <h3 class="h6 mb-1">Create your account</h3>
+                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Choose a secure password for your account.</p>
+                                    <div class="row gx-2">
+                                        {% for field in form.visible_fields %}
+                                            {% if field.name == 'username' or field.name == 'email' or field.name == 'password1' or field.name == 'password2' %}
+                                                <div class="col-12 mb-2">
+                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">
+                                                            {% if field.name == 'username' %}👤{% elif field.name == 'email' %}✉️{% else %}🔒{% endif %}
+                                                        </span>
+                                                        {{ field }}
+                                                    </div>
+                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Step 2: School Info -->
-                            <div class="step d-none" data-step="2">
-                                <h3 class="h6 mb-2">Your school information</h3>
-                                <p class="text-muted small mb-3">Help us understand your academic calendar.</p>
-                                <div class="row gx-2">
-                                    {% for field in form.visible_fields %}
-                                        {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' or field.name == 'grading_structure' %}
-                                            <div class="col-12 col-md-6 mb-2">
-                                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">🏫</span>
-                                                    {{ field }}
-                                                </div>
-                                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <!-- Step 3: Account (Username & Password) -->
-                            <div class="step d-none" data-step="3">
-                                <h3 class="h6 mb-2">Create your account</h3>
-                                <p class="text-muted small mb-3">Choose a secure password for your account.</p>
-                                <div class="row gx-2">
-                                    {% for field in form.visible_fields %}
-                                        {% if field.name == 'username' or field.name == 'email' or field.name == 'password1' or field.name == 'password2' %}
-                                            <div class="col-12 mb-2">
-                                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                <div class="input-group">
-                                                    <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">
-                                                        {% if field.name == 'username' %}👤{% elif field.name == 'email' %}✉️{% else %}🔒{% endif %}
-                                                    </span>
-                                                    {{ field }}
-                                                </div>
-                                                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between mt-4">
-                                <button type="button" class="btn btn-outline-secondary d-none" id="prevStep">← Previous</button>
-                                <div>
-                                    <button type="button" class="btn btn-outline-primary me-2" id="nextStep">Next →</button>
-                                    <button type="submit" class="btn btn-primary d-none" id="submitBtn">✓ Create Account</button>
+                            <div class="d-flex justify-content-between pt-3" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;position:relative;z-index:10;">
+                                <button type="button" class="btn btn-outline-secondary d-none btn-sm" id="prevStep">← Previous</button>
+                                <div style="margin-left:auto;">
+                                    <button type="button" class="btn btn-outline-primary me-2 btn-sm" id="nextStep">Next →</button>
+                                    <button type="submit" class="btn btn-primary d-none btn-sm" id="submitBtn">✓ Create Account</button>
                                 </div>
                             </div>
                         </form>
