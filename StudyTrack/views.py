@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 from collections import defaultdict
 
@@ -153,6 +154,7 @@ def _calculate_predictive_grade(subject, goal):
 def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
 	"""Create intelligent notifications based on grades and goals."""
 	notifications_created = []
+	logger = logging.getLogger(__name__)
 
 	# Check against target goal
 	if goal and float(grade_value) < float(goal.target_grade):
@@ -162,6 +164,7 @@ def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
 		)
 		notif = Notification.objects.create(user=user, message=msg)
 		notifications_created.append(notif)
+		logger.info('Created below-target notification for user=%s subject=%s grade=%s target=%s', user.pk, subject.pk, grade_value, goal.target_grade)
 
 	# Check against passing threshold
 	if float(grade_value) < 75:
@@ -171,6 +174,7 @@ def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
 		)
 		notif = Notification.objects.create(user=user, message=msg)
 		notifications_created.append(notif)
+		logger.info('Created below-passing notification for user=%s subject=%s grade=%s', user.pk, subject.pk, grade_value)
 
 	# Predictive notification if goal exists
 	if goal:
@@ -188,11 +192,13 @@ def _create_enhanced_grade_notifications(user, subject, grade_value, goal=None):
 			)
 			notif = Notification.objects.create(user=user, message=msg)
 			notifications_created.append(notif)
+			logger.info('Created predictive notification for user=%s subject=%s req=%s', user.pk, subject.pk, req)
 
 		# If impossible according to predictive calculation, create a helpful notification
 		if isinstance(info, dict) and info.get('status') == 'impossible':
 			notif = Notification.objects.create(user=user, message=info.get('message'))
 			notifications_created.append(notif)
+			logger.info('Created impossible-target notification for user=%s subject=%s', user.pk, subject.pk)
 
 	return notifications_created
 
@@ -226,16 +232,68 @@ def dashboard(request):
 	overall_average = grades.aggregate(avg=Avg('grade'))['avg']
 	period_average_rows = grades.values('grading_period').annotate(avg=Avg('grade')).order_by('grading_period')
 
-	# Get correct period choices based on user's grading structure
+	# Build per-subject datasets for the chart. We'll show one bar per subject
+	# for each grading period (e.g., Midterm, Endterm) and overlay a target line
+	# showing the active goal for each subject (if any).
 	period_choices = _get_period_choices(request.user)
-	chart_labels = [label for _, label in period_choices]
-	period_map = {choice: 0.0 for choice, _ in period_choices}
-	for row in period_average_rows:
-		period_map[row['grading_period']] = round(float(row['avg']), 2)
-	chart_data = [period_map[choice] for choice, _ in period_choices]
+	period_codes = [code for code, _ in period_choices]
+	period_labels = [label for _, label in period_choices]
 
-	goals = Goal.objects.filter(user=request.user, active=True).select_related('subject')
-	goals_by_subject_id = {goal.subject_id: goal for goal in goals}
+	# Subjects in alphabetical order
+	subjects = list(Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name'))
+	chart_subjects = [s.name for s in subjects]
+
+	# Build datasets: one per period containing per-subject values (or None)
+	palette = ['#2563eb', '#059669', '#f97316', '#ef4444']
+	datasets = []
+	for idx, (code, label) in enumerate(period_choices):
+		data = []
+		for s in subjects:
+			g = s.grades.filter(grading_period=code).order_by('-recorded_at').first()
+			if g:
+				try:
+					data.append(round(float(g.grade), 2))
+				except Exception:
+					data.append(None)
+			else:
+				data.append(None)
+
+		color = palette[idx % len(palette)]
+		datasets.append({
+			'label': label,
+			'data': data,
+			'backgroundColor': color,
+			'borderColor': color,
+		})
+
+	# Targets per subject (active goal for that subject)
+	targets = []
+	for s in subjects:
+		goal_obj = s.goals.filter(user=request.user, active=True).order_by('-created_at').first()
+		if goal_obj:
+			try:
+				targets.append(round(float(goal_obj.target_grade), 2))
+			except Exception:
+				targets.append(None)
+		else:
+			targets.append(None)
+
+	# Add a bar dataset for targets. We place targets in their own stack so
+	# they appear alongside the stacked grading-period bars but not combined
+	# with them. This produces grouped stacks per subject: one stack for
+	# grading periods and a separate stack for targets.
+	datasets.append({
+		'type': 'bar',
+		'label': 'Target',
+		'data': targets,
+		'backgroundColor': 'rgba(249,115,22,0.85)',
+		'borderColor': 'rgba(249,115,22,1)',
+		'stack': 'targets',
+		'order': 2,
+	})
+
+	# Map active goals by subject id so other parts of the view can reference them
+	goals_by_subject_id = {g.subject_id: g for g in Goal.objects.filter(user=request.user, active=True)}
 
 	subject_summaries = []
 	# Build per-subject summaries compatible with includes/subject_table.html
@@ -281,16 +339,19 @@ def dashboard(request):
 	notifications = request.user.notifications.all()[:5]
 	unread_count = request.user.notifications.filter(is_read=False).count()
 
+
 	context = {
 		'overall_average': round(float(overall_average), 2) if overall_average is not None else None,
 		'standing': _academic_standing(float(overall_average)) if overall_average is not None else 'No grades yet',
-		'chart_labels_json': json.dumps(chart_labels),
-		'chart_data_json': json.dumps(chart_data),
+		# Chart data for per-subject grouped bars and target line
+		'chart_subjects_json': json.dumps(chart_subjects),
+		'chart_datasets_json': json.dumps(datasets),
+		'chart_period_labels_json': json.dumps(period_labels),
 		'subject_summaries': subject_summaries,
 		'notifications': notifications,
 		'unread_count': unread_count,
 		'recent_grades': grades.select_related('subject')[:10],
-		'total_goals': goals.count(),
+		'total_goals': Goal.objects.filter(user=request.user, active=True).count(),
 		'total_subjects': Subject.objects.filter(user=request.user).count(),
 		'period_choices': period_choices,
 	}
@@ -318,11 +379,15 @@ def add_grade(request):
 				notes=form.cleaned_data['notes'],
 			)
 
-			# Get active goal and create notifications
+			# Get active goal
 			active_goal = Goal.objects.filter(user=request.user, subject=subject, active=True).order_by('-created_at').first()
-			_create_enhanced_grade_notifications(request.user, subject, grade_entry.grade, active_goal)
 
 			messages.success(request, f'Grade for {subject.name} was saved successfully.')
+			# Create notifications and inform the user immediately if any were generated
+			notifs = _create_enhanced_grade_notifications(request.user, subject, grade_entry.grade, active_goal)
+			if notif_count := len(notifs):
+				# show a short message so the user sees something immediately
+				messages.warning(request, f'{notif_count} notification(s) created related to this grade.')
 			return redirect('dashboard')
 	else:
 		form = GradeEntryForm(user=request.user)
@@ -388,6 +453,19 @@ def mark_notification_read(request, pk):
 	notification.save(update_fields=['is_read'])
 	messages.success(request, 'Notification marked as read.')
 	return redirect('notifications')
+
+
+@login_required
+def delete_notification(request, pk):
+	"""Delete a notification belonging to the current user."""
+	notification = get_object_or_404(Notification, pk=pk, user=request.user)
+	if request.method == 'POST':
+		notification.delete()
+		messages.success(request, 'Notification deleted successfully.')
+		return redirect('notifications')
+
+	# For safety, render a simple confirmation page (re-use delete template pattern)
+	return render(request, 'delete_notification.html', {'notification': notification})
 
 
 @login_required

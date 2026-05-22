@@ -22,11 +22,17 @@
                             <p class="mb-1">{{ notification.message }}</p>
                             <small class="text-muted">{{ notification.created_at }}</small>
                         </div>
-                        {% if not notification.is_read %}
-                            <a class="btn btn-sm btn-success" href="{% url 'mark_notification_read' notification.pk %}">Mark read</a>
-                        {% else %}
-                            <span class="badge bg-secondary">Read</span>
-                        {% endif %}
+                        <div class="d-flex flex-column align-items-end gap-2">
+                            {% if not notification.is_read %}
+                                <a class="btn btn-sm btn-success" href="{% url 'mark_notification_read' notification.pk %}">Mark read</a>
+                            {% else %}
+                                <span class="badge bg-secondary">Read</span>
+                            {% endif %}
+                            <form method="post" action="{% url 'delete_notification' notification.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        </div>
                     </div>
                 {% endfor %}
             </div>

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Delete Notification | StudyTrack{% endblock %}
+{% block content %}
+<div class="card soft-shadow border-0">
+    <div class="card-body">
+        <h3 class="h5 section-title mb-3">Delete Notification</h3>
+        <p class="mb-3">Are you sure you want to delete this notification?</p>
+        <p class="mb-1"><strong>{{ notification.message }}</strong></p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a href="{% url 'notifications' %}" class="btn btn-outline-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

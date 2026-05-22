@@ -129,32 +129,66 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script>
-    const labels = JSON.parse('{{ chart_labels_json|escapejs }}');
-    const dataPoints = JSON.parse('{{ chart_data_json|escapejs }}');
+    // Register data labels plugin with Chart.js
+    if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
+        Chart.register(ChartDataLabels);
+    }
+    // Per-subject grouped bar chart: each subject is a category on x-axis.
+    // There is one bar dataset per grading period (e.g., Midterm, Endterm)
+    // and a 'Target' dataset drawn as a line overlay showing each subject's active goal.
+    const labels = JSON.parse('{{ chart_subjects_json|escapejs }}');
+    const rawDatasets = JSON.parse('{{ chart_datasets_json|escapejs }}');
+
+    // Convert datasets to Chart.js-friendly objects. We allow mixed dataset types
+    // because the last dataset (Target) may have type 'line'.
+    const datasets = rawDatasets.map(ds => {
+        // ensure missing values are null (already produced by view)
+        return Object.assign({}, ds);
+    });
+
     const ctx = document.getElementById('gradesChart');
     new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
-            labels,
-            datasets: [{
-                label: 'Average Grade',
-                data: dataPoints,
-                borderColor: '#f97316',
-                backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                tension: 0.35,
-                fill: true,
-            }],
+            labels: labels,
+            datasets: datasets,
         },
         options: {
             responsive: true,
             scales: {
+                x: {
+                    stacked: true,
+                },
                 y: {
+                    stacked: true,
                     beginAtZero: true,
                     suggestedMax: 100,
-                },
+                    ticks: { stepSize: 10 }
+                }
             },
-        },
+            plugins: {
+                tooltip: { mode: 'index', intersect: false },
+                legend: { position: 'top' },
+                datalabels: {
+                    color: '#ffffff',
+                    font: { weight: '600', size: 11 },
+                    formatter: function(value, context) {
+                        // Hide labels for null/undefined data points
+                        if (value === null || value === undefined) return null;
+                        // Format numbers: show integer if whole, otherwise one decimal
+                        if (typeof value === 'number') {
+                            return (Math.round(value) === value) ? value : value.toFixed(1);
+                        }
+                        return value;
+                    },
+                    anchor: 'center',
+                    align: 'center',
+                    clamp: true,
+                }
+            }
+        }
     });
 </script>
 {% endblock %}
