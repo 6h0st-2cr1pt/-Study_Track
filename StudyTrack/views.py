@@ -28,10 +28,20 @@ def _get_or_create_subject(user, subject_name):
 	return subject
 
 
-def _get_period_choices(user):
-	"""Get grading period choices based on user's grading structure."""
+def _get_period_choices(user, semester=None):
+	"""Get grading period choices based on user's grading structure.
+
+	If semester is provided ('1' or '2'), use the per-semester internal structure
+	configured on the user's StudentProfile. Otherwise use the global grading_structure.
+	"""
 	profile, _ = StudentProfile.objects.get_or_create(user=user)
-	if profile.grading_structure == StudentProfile.TRIMESTER:
+	structure = profile.grading_structure
+	if semester == '1':
+		structure = profile.sem1_structure
+	elif semester == '2':
+		structure = profile.sem2_structure
+
+	if structure == StudentProfile.TRIMESTER:
 		return GradeEntry.TRIMESTER_PERIOD_CHOICES
 	else:
 		return GradeEntry.SEMESTER_PERIOD_CHOICES
@@ -239,6 +249,10 @@ def dashboard(request):
 	period_codes = [code for code, _ in period_choices]
 	period_labels = [label for _, label in period_choices]
 
+	# Semester-specific period choices
+	sem1_period_choices = _get_period_choices(request.user, '1')
+	sem2_period_choices = _get_period_choices(request.user, '2')
+
 	# Subjects in alphabetical order
 	subjects = list(Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name'))
 	chart_subjects = [s.name for s in subjects]
@@ -292,32 +306,25 @@ def dashboard(request):
 		'order': 2,
 	})
 
-	# Map active goals by subject id so other parts of the view can reference them
-	goals_by_subject_id = {g.subject_id: g for g in Goal.objects.filter(user=request.user, active=True)}
+	# Map active goals by subject id and semester so other parts of the view can reference them
+	active_goals = Goal.objects.filter(user=request.user, active=True)
+	goals_by_subject_sem = {(g.subject_id, g.semester): g for g in active_goals}
 
-	subject_summaries = []
+	subject_summaries_sem1 = []
+	subject_summaries_sem2 = []
 	# Build per-subject summaries compatible with includes/subject_table.html
-	for subject in Subject.objects.filter(user=request.user).prefetch_related('grades').order_by('name'):
-		# Latest grade (GradeEntry ordering ensures newest first)
-		latest_grade = subject.grades.first()
+	# Only include a subject in a semester's list if it has an active goal for
+	# that semester. Since grading period codes are shared between semesters,
+	# we cannot reliably infer semester from grading_period alone.
+	# The semester separation is based on which semester a goal is assigned to.
 
-		# Use CHED weighted average
+	for subject in Subject.objects.filter(user=request.user).prefetch_related('grades').order_by('name'):
+		latest_grade = subject.grades.first()
 		subject_average = _calculate_ched_weighted_average(subject)
 
-		goal = goals_by_subject_id.get(subject.id)
-		target_progress = None
-		gap = None
-		prediction_info = None
-
-		if goal and latest_grade is not None:
-			try:
-				gap = round(float(latest_grade.grade) - float(goal.target_grade), 2)
-				if float(goal.target_grade) > 0:
-					target_progress = min(round((float(latest_grade.grade) / float(goal.target_grade)) * 100, 1), 100)
-			except Exception:
-				gap = None
-			# Get predictive info
-			prediction_info = _calculate_predictive_grade(subject, goal)
+		# Goals for each semester
+		goal_sem1 = goals_by_subject_sem.get((subject.id, Goal.FIRST_SEM))
+		goal_sem2 = goals_by_subject_sem.get((subject.id, Goal.SECOND_SEM))
 
 		# Build ordered list of (code, label, latest_grade_obj) per period for this user
 		period_grade_pairs = []
@@ -325,16 +332,65 @@ def dashboard(request):
 			g = subject.grades.filter(grading_period=code).order_by('-recorded_at').first()
 			period_grade_pairs.append((code, label, g))
 
-		subject_summaries.append({
-			'subject': subject,
-			'latest_grade': latest_grade,
-			'average': subject_average,
-			'goal': goal,
-			'gap': gap,
-			'target_progress': target_progress,
-			'prediction_info': prediction_info,
-			'period_grade_pairs': period_grade_pairs,
-		})
+		# Semester 1 entry (only include if there's an active semester-1 goal)
+		if goal_sem1:
+			gap1 = None
+			target_progress1 = None
+			prediction_info1 = None
+			if latest_grade is not None and goal_sem1 is not None:
+				try:
+					gap1 = round(float(latest_grade.grade) - float(goal_sem1.target_grade), 2)
+					if float(goal_sem1.target_grade) > 0:
+						target_progress1 = min(round((float(latest_grade.grade) / float(goal_sem1.target_grade)) * 100, 1), 100)
+				except Exception:
+					gap1 = None
+				prediction_info1 = _calculate_predictive_grade(subject, goal_sem1) if goal_sem1 else None
+
+			status1 = 'no_goal'
+			if gap1 is not None:
+				status1 = 'below' if gap1 < 0 else 'ontrack'
+
+			subject_summaries_sem1.append({
+				'subject': subject,
+				'latest_grade': latest_grade,
+				'average': subject_average,
+				'goal': goal_sem1,
+				'gap': gap1,
+				'status': status1,
+				'target_progress': target_progress1,
+				'prediction_info': prediction_info1,
+				'period_grade_pairs': period_grade_pairs,
+			})
+
+		# Semester 2 entry (only include if there's an active semester-2 goal)
+		if goal_sem2:
+			gap2 = None
+			target_progress2 = None
+			prediction_info2 = None
+			if latest_grade is not None and goal_sem2 is not None:
+				try:
+					gap2 = round(float(latest_grade.grade) - float(goal_sem2.target_grade), 2)
+					if float(goal_sem2.target_grade) > 0:
+						target_progress2 = min(round((float(latest_grade.grade) / float(goal_sem2.target_grade)) * 100, 1), 100)
+				except Exception:
+					gap2 = None
+				prediction_info2 = _calculate_predictive_grade(subject, goal_sem2) if goal_sem2 else None
+
+			status2 = 'no_goal'
+			if gap2 is not None:
+				status2 = 'below' if gap2 < 0 else 'ontrack'
+
+			subject_summaries_sem2.append({
+				'subject': subject,
+				'latest_grade': latest_grade,
+				'average': subject_average,
+				'goal': goal_sem2,
+				'gap': gap2,
+				'status': status2,
+				'target_progress': target_progress2,
+				'prediction_info': prediction_info2,
+				'period_grade_pairs': period_grade_pairs,
+			})
 
 	notifications = request.user.notifications.all()[:5]
 	unread_count = request.user.notifications.filter(is_read=False).count()
@@ -347,7 +403,10 @@ def dashboard(request):
 		'chart_subjects_json': json.dumps(chart_subjects),
 		'chart_datasets_json': json.dumps(datasets),
 		'chart_period_labels_json': json.dumps(period_labels),
-		'subject_summaries': subject_summaries,
+		'sem1_period_choices': sem1_period_choices,
+		'sem2_period_choices': sem2_period_choices,
+		'subject_summaries_sem1': subject_summaries_sem1,
+		'subject_summaries_sem2': subject_summaries_sem2,
 		'notifications': notifications,
 		'unread_count': unread_count,
 		'recent_grades': grades.select_related('subject')[:10],
@@ -407,6 +466,7 @@ def add_goal(request):
 				subject=subject,
 				target_grade=form.cleaned_data['target_grade'],
 				active=form.cleaned_data['active'],
+				semester=form.cleaned_data.get('semester', Goal.FIRST_SEM),
 			)
 			messages.success(request, f'Subject and goal for {subject.name} have been saved.')
 			return redirect('dashboard')
@@ -473,12 +533,22 @@ def data_management(request):
 	"""Display all subjects with options to edit or delete."""
 	subjects = Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name')
 
-	subject_data = []
+	# Prepare semester-specific subject lists
+	subject_data_sem1 = []
+	subject_data_sem2 = []
+
 	# Get period choices for this user so we can show columns for each grading period
 	period_choices = _get_period_choices(request.user)
+	sem1_period_choices = _get_period_choices(request.user, '1')
+	sem2_period_choices = _get_period_choices(request.user, '2')
+
+	# Only include subjects in a semester list if there is an active goal for
+	# that semester. Since grading period codes are shared between semesters,
+	# we cannot reliably infer semester from grading_period alone.
+	# The semester separation is purely based on the goal's semester assignment.
+
 	for subject in subjects:
 		grades = subject.grades.all()
-		goals = subject.goals.filter(active=True)
 
 		# Latest grade
 		subject_grades = list(grades)
@@ -491,48 +561,91 @@ def data_management(request):
 		else:
 			average = None
 
-		# Get active goal
-		goal_obj = goals.first() if goals else None
-		target_grade = goal_obj.target_grade if goal_obj else None
+		# Get active goals per semester
+		goal_obj_sem1 = subject.goals.filter(user=request.user, active=True, semester=Goal.FIRST_SEM).order_by('-created_at').first()
+		goal_obj_sem2 = subject.goals.filter(user=request.user, active=True, semester=Goal.SECOND_SEM).order_by('-created_at').first()
 
-		# Progress toward goal
-		gap = None
-		target_progress = None
-		if goal_obj and latest_grade is not None:
+
+		# Compute info for semester 1
+		gap1 = None
+		target_progress1 = None
+		prediction_info1 = None
+		if goal_obj_sem1 and latest_grade is not None:
 			try:
-				gap = round(float(latest_grade.grade) - float(goal_obj.target_grade), 2)
-				if float(goal_obj.target_grade) > 0:
-					target_progress = min(round((float(latest_grade.grade) / float(goal_obj.target_grade)) * 100, 1), 100)
+				gap1 = round(float(latest_grade.grade) - float(goal_obj_sem1.target_grade), 2)
+				if float(goal_obj_sem1.target_grade) > 0:
+					target_progress1 = min(round((float(latest_grade.grade) / float(goal_obj_sem1.target_grade)) * 100, 1), 100)
 			except Exception:
-				gap = None
+				gap1 = None
+			prediction_info1 = _calculate_predictive_grade(subject, goal_obj_sem1)
 
-		# Predictive info
-		prediction_info = None
-		if goal_obj:
-			prediction_info = _calculate_predictive_grade(subject, goal_obj)
-		# Build an ordered list of (code, label, latest_grade_obj) for the user's period choices
+		# Compute info for semester 2
+		gap2 = None
+		target_progress2 = None
+		prediction_info2 = None
+		if goal_obj_sem2 and latest_grade is not None:
+			try:
+				gap2 = round(float(latest_grade.grade) - float(goal_obj_sem2.target_grade), 2)
+				if float(goal_obj_sem2.target_grade) > 0:
+					target_progress2 = min(round((float(latest_grade.grade) / float(goal_obj_sem2.target_grade)) * 100, 1), 100)
+			except Exception:
+				gap2 = None
+			prediction_info2 = _calculate_predictive_grade(subject, goal_obj_sem2)
+
+		# Build ordered list of (code, label, latest_grade_obj) per period for this user
 		period_grade_pairs = []
 		for code, label in period_choices:
 			g = grades.filter(grading_period=code).order_by('-recorded_at').first()
 			period_grade_pairs.append((code, label, g))
 
-		subject_data.append({
-			'subject': subject,
-			'latest_grade': latest_grade,
-			'grades_count': grades.count(),
-			'average': average,
-			'goal': goal_obj,
-			'gap': gap,
-			'target_progress': target_progress,
-			'goals_count': goals.count(),
-			'prediction_info': prediction_info,
-			'period_grade_pairs': period_grade_pairs,
-		})
+		# Determine status for filtering
+		status1 = 'no_goal'
+		if goal_obj_sem1 and gap1 is not None:
+			status1 = 'below' if gap1 < 0 else 'ontrack'
+
+		status2 = 'no_goal'
+		if goal_obj_sem2 and gap2 is not None:
+			status2 = 'below' if gap2 < 0 else 'ontrack'
+
+		# Append to sem1 list only when there's an active sem1 goal
+		if goal_obj_sem1:
+			subject_data_sem1.append({
+				'subject': subject,
+				'latest_grade': latest_grade,
+				'grades_count': grades.count(),
+				'average': average,
+				'goal': goal_obj_sem1,
+				'gap': gap1,
+				'target_progress': target_progress1,
+				'goals_count': subject.goals.filter(active=True).count(),
+				'prediction_info': prediction_info1,
+				'period_grade_pairs': period_grade_pairs,
+				'status': status1,
+			})
+
+		# Append to sem2 list only when there's an active sem2 goal
+		if goal_obj_sem2:
+			subject_data_sem2.append({
+				'subject': subject,
+				'latest_grade': latest_grade,
+				'grades_count': grades.count(),
+				'average': average,
+				'goal': goal_obj_sem2,
+				'gap': gap2,
+				'target_progress': target_progress2,
+				'goals_count': subject.goals.filter(active=True).count(),
+				'prediction_info': prediction_info2,
+				'period_grade_pairs': period_grade_pairs,
+				'status': status2,
+			})
 
 	context = {
-		'subject_data': subject_data,
+		'subject_data_sem1': subject_data_sem1,
+		'subject_data_sem2': subject_data_sem2,
 		'total_subjects': len(subjects),
 		'period_choices': period_choices,
+		'sem1_period_choices': sem1_period_choices,
+		'sem2_period_choices': sem2_period_choices,
 		'grading_structure': StudentProfile.objects.get_or_create(user=request.user)[0].grading_structure,
 	}
 	return render(request, 'data_management.html', context)

@@ -66,8 +66,18 @@
     <div class="card-body p-4">
         <h3 class="h5 section-title mb-1">Subject Performance</h3>
         <p class="text-muted mb-4">View your subjects and their performance across grading periods.</p>
-        {% if subject_summaries %}
-            {% include 'includes/subject_table.html' with items=subject_summaries period_choices=period_choices show_actions=False %}
+        {% if subject_summaries_sem1 or subject_summaries_sem2 %}
+            <h4 class="mt-2">1st Semester</h4>
+                {% include 'includes/subject_table.html' with items=subject_summaries_sem1 period_choices=sem1_period_choices show_actions=False %}
+
+            <h4 class="mt-4">2nd Semester</h4>
+            {# Only render the 2nd semester table if there are items; otherwise show a small placeholder message #}
+            {% if subject_summaries_sem2 %}
+                {% include 'includes/subject_table.html' with items=subject_summaries_sem2 period_choices=sem2_period_choices show_actions=False %}
+            {% else %}
+                <p class="text-muted mb-3">No subjects or grades recorded for the 2nd semester yet.</p>
+            {% endif %}
+
             <div class="mt-4 pt-3 border-top">
                 <p class="text-muted mb-0"><strong>Total Subjects:</strong> {{ total_subjects }}</p>
             </div>

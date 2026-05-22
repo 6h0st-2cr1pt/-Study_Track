@@ -22,6 +22,22 @@ class StudentProfile(models.Model):
 		default=SEMESTER,
 		help_text='Select your school\'s academic calendar structure'
 	)
+
+	# Allow per-semester grading internal structure (some universities split each
+	# semester into prelim/midterm/endterm while others use only midterm/endterm).
+	sem1_structure = models.CharField(
+		max_length=20,
+		choices=GRADING_STRUCTURE_CHOICES,
+		default=SEMESTER,
+		help_text='Internal grading structure for 1st Semester'
+	)
+
+	sem2_structure = models.CharField(
+		max_length=20,
+		choices=GRADING_STRUCTURE_CHOICES,
+		default=SEMESTER,
+		help_text='Internal grading structure for 2nd Semester'
+	)
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
 
@@ -127,6 +143,14 @@ class Goal(models.Model):
 		validators=[MinValueValidator(0), MaxValueValidator(100)],
 	)
 	active = models.BooleanField(default=True)
+	# Semester for which this goal applies (useful for universities with multiple semesters)
+	FIRST_SEM = '1'
+	SECOND_SEM = '2'
+	SEMESTER_CHOICES = [
+		(FIRST_SEM, '1st Semester'),
+		(SECOND_SEM, '2nd Semester'),
+	]
+	semester = models.CharField(max_length=2, choices=SEMESTER_CHOICES, default=FIRST_SEM)
 	created_at = models.DateTimeField(auto_now_add=True)
 
 	class Meta:

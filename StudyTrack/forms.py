@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import GradeEntry, StudentProfile, Subject
+from .models import GradeEntry, StudentProfile, Subject, Goal
 
 
 class StudentRegistrationForm(UserCreationForm):
@@ -17,6 +17,18 @@ class StudentRegistrationForm(UserCreationForm):
         initial=StudentProfile.SEMESTER,
         label='School Academic Calendar',
         help_text='Select your school\'s academic calendar structure (Semester or Trimester)'
+    )
+    sem1_structure = forms.ChoiceField(
+        choices=StudentProfile.GRADING_STRUCTURE_CHOICES,
+        initial=StudentProfile.SEMESTER,
+        label='1st Semester internal structure',
+        help_text='Select internal grading periods for 1st Semester'
+    )
+    sem2_structure = forms.ChoiceField(
+        choices=StudentProfile.GRADING_STRUCTURE_CHOICES,
+        initial=StudentProfile.SEMESTER,
+        label='2nd Semester internal structure',
+        help_text='Select internal grading periods for 2nd Semester'
     )
 
     class Meta:
@@ -33,6 +45,8 @@ class StudentRegistrationForm(UserCreationForm):
             # Update the student profile with grading structure
             profile, _ = StudentProfile.objects.get_or_create(user=user)
             profile.grading_structure = self.cleaned_data.get('grading_structure')
+            profile.sem1_structure = self.cleaned_data.get('sem1_structure', StudentProfile.SEMESTER)
+            profile.sem2_structure = self.cleaned_data.get('sem2_structure', StudentProfile.SEMESTER)
             # Save additional profile fields provided during registration
             profile.institution = self.cleaned_data.get('institution', '')
             profile.program = self.cleaned_data.get('program', '')
@@ -54,18 +68,40 @@ class GradeEntryForm(forms.Form):
 
             # Get user's profile to determine grading structure
             profile, _ = StudentProfile.objects.get_or_create(user=user)
-            if profile.grading_structure == StudentProfile.TRIMESTER:
-                # Trimester: Prelim, Midterm, Endterm
-                self.fields['grading_period'].choices = GradeEntry.TRIMESTER_PERIOD_CHOICES
+            # Determine per-semester internal structures and present a combined
+            # set of grading period choices so users can record grades for either
+            # semester's internal periods. The order keeps Prelim first when present.
+            sem1 = profile.sem1_structure
+            sem2 = profile.sem2_structure
+
+            choices = []
+            def add_choices(src):
+                for code, label in src:
+                    if code not in [c[0] for c in choices]:
+                        choices.append((code, label))
+
+            if sem1 == StudentProfile.TRIMESTER:
+                add_choices(GradeEntry.TRIMESTER_PERIOD_CHOICES)
             else:
-                # Semester: Midterm, Endterm
-                self.fields['grading_period'].choices = GradeEntry.SEMESTER_PERIOD_CHOICES
+                add_choices(GradeEntry.SEMESTER_PERIOD_CHOICES)
+
+            if sem2 == StudentProfile.TRIMESTER:
+                add_choices(GradeEntry.TRIMESTER_PERIOD_CHOICES)
+            else:
+                add_choices(GradeEntry.SEMESTER_PERIOD_CHOICES)
+
+            # Fallback to semester choices if nothing computed
+            if not choices:
+                choices = GradeEntry.SEMESTER_PERIOD_CHOICES
+
+            self.fields['grading_period'].choices = choices
 
 
 class GoalForm(forms.Form):
     subject_name = forms.CharField(label='Subject', max_length=120)
     target_grade = forms.DecimalField(min_value=0, max_value=100, decimal_places=2, max_digits=5)
     active = forms.BooleanField(required=False, initial=True)
+    semester = forms.ChoiceField(label='Semester', choices=Goal.SEMESTER_CHOICES, initial=Goal.FIRST_SEM)
 
     def clean_subject_name(self):
         value = self.cleaned_data['subject_name']
@@ -96,6 +132,8 @@ class ProfileManagementForm(forms.Form):
             self.fields['program'].initial = profile.program
             self.fields['year_level'].initial = profile.year_level
             self.fields['grading_structure'].initial = profile.grading_structure
+            self.fields['sem1_structure'].initial = profile.sem1_structure
+            self.fields['sem2_structure'].initial = profile.sem2_structure
 
     def save(self):
         profile, _ = StudentProfile.objects.get_or_create(user=self.user)
@@ -108,5 +146,7 @@ class ProfileManagementForm(forms.Form):
         profile.program = self.cleaned_data['program']
         profile.year_level = self.cleaned_data['year_level']
         profile.grading_structure = self.cleaned_data['grading_structure']
-        profile.save(update_fields=['institution', 'program', 'year_level', 'grading_structure', 'updated_at'])
+        profile.sem1_structure = self.cleaned_data.get('sem1_structure', StudentProfile.SEMESTER)
+        profile.sem2_structure = self.cleaned_data.get('sem2_structure', StudentProfile.SEMESTER)
+        profile.save(update_fields=['institution', 'program', 'year_level', 'grading_structure', 'sem1_structure', 'sem2_structure', 'updated_at'])
         return self.user, profile

@@ -143,7 +143,7 @@
                                     <p class="text-muted small mb-2" style="font-size:0.8rem;">Help us understand your academic calendar.</p>
                                     <div class="row gx-2">
                                         {% for field in form.visible_fields %}
-                                            {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' or field.name == 'grading_structure' %}
+                                            {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' or field.name == 'grading_structure' or field.name == 'sem1_structure' or field.name == 'sem2_structure' %}
                                                 <div class="col-12 col-md-6 mb-2">
                                                     <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                                                     <div class="input-group">

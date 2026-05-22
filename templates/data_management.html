@@ -18,8 +18,11 @@
                     </div>
                 {% endif %}
 
-                {% if subject_data %}
-                    {% include 'includes/subject_table.html' with items=subject_data period_choices=period_choices show_actions=True %}
+                {% if subject_data_sem1 or subject_data_sem2 %}
+                    <h4 class="mt-2">1st Semester</h4>
+                    {% include 'includes/subject_table.html' with items=subject_data_sem1 period_choices=sem1_period_choices show_actions=True %}
+                    <h4 class="mt-4">2nd Semester</h4>
+                    {% include 'includes/subject_table.html' with items=subject_data_sem2 period_choices=sem2_period_choices show_actions=True %}
 
                     <div class="mt-4 pt-3 border-top">
                         <p class="text-muted mb-0"><strong>Total Subjects:</strong> {{ total_subjects }}</p>

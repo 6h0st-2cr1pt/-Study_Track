@@ -1,3 +1,14 @@
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <div>
+        <div class="btn-group subject-filter" role="group" aria-label="Filter subjects">
+            <button type="button" class="btn btn-sm btn-outline-primary active" data-filter="all">All</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-filter="below">Below target</button>
+            <button type="button" class="btn btn-sm btn-outline-success" data-filter="ontrack">On track</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="no_goal">No goal</button>
+        </div>
+    </div>
+</div>
+
 <div class="table-responsive">
     <table class="table align-middle mb-0">
         <thead>
@@ -16,7 +27,7 @@
         </thead>
         <tbody>
             {% for item in items %}
-            <tr>
+            <tr data-status="{{ item.status }}">
                 <td><strong>{{ item.subject.name }}</strong></td>
                 {% for code,label,grade_obj in item.period_grade_pairs %}
                     <td>
@@ -24,7 +35,7 @@
                             {{ grade_obj.grade }}
                         {% else %}
                             {% if item.prediction_info and item.prediction_info.required %}
-                                <span class="badge bg-warning text-white">Need {{ item.prediction_info.required|floatformat:2 }}</span>
+                                <span class="badge bg-warning text-black">Need {{ item.prediction_info.required|floatformat:2 }}</span>
                             {% else %}
                                 —
                             {% endif %}
@@ -34,7 +45,7 @@
                 <td>{% if item.average is not None %}{{ item.average }}{% else %}—{% endif %}</td>
                 <td>
                     {% if item.goal %}
-                        {{ item.goal.target_grade }}
+                        {{ item.goal.target_grade }} <small class="text-muted">({{ item.goal.get_semester_display }})</small>
                         {% if item.target_progress is not None %}
                             <div class="progress mt-1" style="height: 6px;">
                                 <div class="progress-bar" role="progressbar" style="width: {{ item.target_progress }}%;"></div>
@@ -79,4 +90,47 @@
         </tbody>
     </table>
 </div>
+
+<script>
+    (function(){
+        const script = document.currentScript;
+
+        // Navigate backwards through siblings to find the table and filter elements
+        // Script structure:
+        // [filter-div] [table-responsive-div] [this-script]
+        // So we need to go back 2 siblings to the filter, and back 1 to the table
+
+        let element = script.previousElementSibling;  // table-responsive
+        const table = element?.querySelector('table');
+
+        element = element?.previousElementSibling;  // back to the filter div
+        let filterGroup = element?.querySelector('.subject-filter');
+
+        // If we can't find via siblings, search in parent (fallback)
+        if (!filterGroup || !table) {
+            const parent = script.parentElement;
+            filterGroup = parent.querySelector('.subject-filter');
+            if (!filterGroup || !table) return;
+        }
+
+        const buttons = filterGroup.querySelectorAll('button[data-filter]');
+        const rows = table ? Array.from(table.tBodies[0]?.rows || []) : [];
+
+        function applyFilter(filter){
+            rows.forEach(r => {
+                if (filter === 'all') {
+                    r.style.display = '';
+                } else {
+                    r.style.display = (r.getAttribute('data-status') === filter) ? '' : 'none';
+                }
+            });
+        }
+
+        buttons.forEach(btn => btn.addEventListener('click', (e) => {
+            buttons.forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            applyFilter(e.target.getAttribute('data-filter'));
+        }));
+    })();
+</script>
 
