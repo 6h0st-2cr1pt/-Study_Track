@@ -17,7 +17,7 @@
         {% if notifications %}
             <div class="list-group list-group-flush">
                 {% for notification in notifications %}
-                    <div class="list-group-item d-flex justify-content-between align-items-start {% if not notification.is_read %}list-group-item-warning{% endif %}">
+                    <div class="list-group-item d-flex justify-content-between align-items-start border rounded {% if not notification.is_read %}border-success{% endif %} mb-3">
                         <div class="me-3">
                             <p class="mb-1">{{ notification.message }}</p>
                             <small class="text-muted">{{ notification.created_at }}</small>
