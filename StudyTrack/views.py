@@ -257,58 +257,196 @@ def dashboard(request):
 	subjects = list(Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name'))
 	chart_subjects = [s.name for s in subjects]
 
-	# Build datasets: one per period containing per-subject values (or None)
-	palette = ['#2563eb', '#059669', '#f97316', '#ef4444']
-	datasets = []
-	for idx, (code, label) in enumerate(period_choices):
-		data = []
-		for s in subjects:
-			g = s.grades.filter(grading_period=code).order_by('-recorded_at').first()
-			if g:
-				try:
-					data.append(round(float(g.grade), 2))
-				except Exception:
-					data.append(None)
-			else:
-				data.append(None)
-
-		color = palette[idx % len(palette)]
-		datasets.append({
-			'label': label,
-			'data': data,
-			'backgroundColor': color,
-			'borderColor': color,
-		})
-
-	# Targets per subject (active goal for that subject)
-	targets = []
-	for s in subjects:
-		goal_obj = s.goals.filter(user=request.user, active=True).order_by('-created_at').first()
-		if goal_obj:
-			try:
-				targets.append(round(float(goal_obj.target_grade), 2))
-			except Exception:
-				targets.append(None)
-		else:
-			targets.append(None)
-
-	# Add a bar dataset for targets. We place targets in their own stack so
-	# they appear alongside the stacked grading-period bars but not combined
-	# with them. This produces grouped stacks per subject: one stack for
-	# grading periods and a separate stack for targets.
-	datasets.append({
-		'type': 'bar',
-		'label': 'Target',
-		'data': targets,
-		'backgroundColor': 'rgba(249,115,22,0.85)',
-		'borderColor': 'rgba(249,115,22,1)',
-		'stack': 'targets',
-		'order': 2,
-	})
-
 	# Map active goals by subject id and semester so other parts of the view can reference them
 	active_goals = Goal.objects.filter(user=request.user, active=True)
 	goals_by_subject_sem = {(g.subject_id, g.semester): g for g in active_goals}
+
+	# Helper to build datasets for a given set of period choices and
+	# targets determined by active goals for the given semester.
+	palette = ['#2563eb', '#059669', '#f97316', '#ef4444']
+
+	def build_datasets_for(period_choices_for_sem, semester_key):
+		# Only include subjects that have active goals in this semester
+		subjects_for_sem = [s for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
+		
+		ds = []
+		for idx, (code, label) in enumerate(period_choices_for_sem):
+			data = []
+			for s in subjects_for_sem:
+				g = s.grades.filter(grading_period=code).order_by('-recorded_at').first()
+				if g:
+					try:
+						data.append(round(float(g.grade), 2))
+					except Exception:
+						data.append(None)
+				else:
+					data.append(None)
+
+			color = palette[idx % len(palette)]
+			ds.append({
+				'label': label,
+				'data': data,
+				'backgroundColor': color,
+				'borderColor': color,
+			})
+
+		# Targets per subject but only consider active goals for the requested semester
+		targets_sem = []
+		for s in subjects_for_sem:
+			goal_obj = goals_by_subject_sem.get((s.id, semester_key))
+			if goal_obj:
+				try:
+					targets_sem.append(round(float(goal_obj.target_grade), 2))
+				except Exception:
+					targets_sem.append(None)
+			else:
+				targets_sem.append(None)
+
+		ds.append({
+			'type': 'bar',
+			'label': 'Target',
+			'data': targets_sem,
+			'backgroundColor': 'rgba(249,115,22,0.85)',
+			'borderColor': 'rgba(249,115,22,1)',
+			'stack': 'targets',
+			'order': 2,
+		})
+
+		return ds
+
+	# Helper to get subject names for a semester
+	def get_subjects_for_sem(semester_key):
+		return [s.name for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
+
+	# Build sem-specific datasets and labels so the UI can toggle between them
+	datasets_sem1 = build_datasets_for(sem1_period_choices, Goal.FIRST_SEM)
+	datasets_sem2 = build_datasets_for(sem2_period_choices, Goal.SECOND_SEM)
+	chart_subjects_sem1 = get_subjects_for_sem(Goal.FIRST_SEM)
+	chart_subjects_sem2 = get_subjects_for_sem(Goal.SECOND_SEM)
+	# Default to the general period choices dataset for backwards compatibility
+	datasets = build_datasets_for(period_choices, Goal.FIRST_SEM)
+
+	# Build time series data for Midterm/Endterm comparison charts
+	def build_time_series_data(semester_key):
+		"""Build chart data with Midterm Actual, Midterm Goal, Endterm Actual, Endterm Goal, and Overall Trend"""
+		# Get subjects with goals in this semester
+		subjects_in_sem = [s for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
+		
+		if not subjects_in_sem:
+			return None
+		
+		subject_names = [s.name for s in subjects_in_sem]
+		
+		# Initialize data arrays for each metric
+		midterm_actual = []
+		midterm_goal = []
+		endterm_actual = []
+		endterm_goal = []
+		overall_trend = []
+		
+		for subject in subjects_in_sem:
+			# Get grades
+			midterm_grade = subject.grades.filter(grading_period=GradeEntry.MIDTERM).order_by('-recorded_at').first()
+			endterm_grade = subject.grades.filter(grading_period=GradeEntry.ENDTERM).order_by('-recorded_at').first()
+			
+			# Get goal for this semester
+			goal = goals_by_subject_sem.get((subject.id, semester_key))
+			
+			# Midterm actual
+			midterm_actual.append(float(midterm_grade.grade) if midterm_grade else None)
+			
+			# Midterm goal
+			midterm_goal.append(float(goal.target_grade) if goal else None)
+			
+			# Endterm actual
+			endterm_actual.append(float(endterm_grade.grade) if endterm_grade else None)
+			
+			# Endterm goal
+			endterm_goal.append(float(goal.target_grade) if goal else None)
+			
+			# Overall trend (average of available grades)
+			grades_list = [float(g) for g in [
+				midterm_grade.grade if midterm_grade else None,
+				endterm_grade.grade if endterm_grade else None
+			] if g is not None]
+			
+			if grades_list:
+				overall_trend.append(round(sum(grades_list) / len(grades_list), 2))
+			else:
+				overall_trend.append(None)
+		
+		return {
+			'subject_names': subject_names,
+			'datasets': [
+				{
+					'label': 'Midterm Actual',
+					'data': midterm_actual,
+					'borderColor': '#2563eb',
+					'backgroundColor': 'rgba(37, 99, 235, 0.1)',
+					'borderWidth': 2,
+					'borderDash': [],
+					'tension': 0.3,
+					'fill': False,
+					'pointRadius': 5,
+					'pointBackgroundColor': '#2563eb',
+				},
+				{
+					'label': 'Midterm Goal',
+					'data': midterm_goal,
+					'borderColor': '#2563eb',
+					'backgroundColor': 'rgba(37, 99, 235, 0.05)',
+					'borderWidth': 2,
+					'borderDash': [5, 5],
+					'tension': 0.3,
+					'fill': False,
+					'pointRadius': 4,
+					'pointBackgroundColor': '#2563eb',
+					'pointStyle': 'triangle',
+				},
+				{
+					'label': 'Endterm Actual',
+					'data': endterm_actual,
+					'borderColor': '#059669',
+					'backgroundColor': 'rgba(5, 150, 105, 0.1)',
+					'borderWidth': 2,
+					'borderDash': [],
+					'tension': 0.3,
+					'fill': False,
+					'pointRadius': 5,
+					'pointBackgroundColor': '#059669',
+				},
+				{
+					'label': 'Endterm Goal',
+					'data': endterm_goal,
+					'borderColor': '#059669',
+					'backgroundColor': 'rgba(5, 150, 105, 0.05)',
+					'borderWidth': 2,
+					'borderDash': [5, 5],
+					'tension': 0.3,
+					'fill': False,
+					'pointRadius': 4,
+					'pointBackgroundColor': '#059669',
+					'pointStyle': 'triangle',
+				},
+				{
+					'label': 'Semester Trend',
+					'data': overall_trend,
+					'borderColor': '#f97316',
+					'backgroundColor': 'rgba(249, 115, 22, 0.15)',
+					'borderWidth': 3,
+					'borderDash': [],
+					'tension': 0.3,
+					'fill': True,
+					'pointRadius': 6,
+					'pointBackgroundColor': '#f97316',
+				}
+			]
+		}
+	
+	# Build time series data for both semesters
+	time_series_sem1 = build_time_series_data(Goal.FIRST_SEM)
+	time_series_sem2 = build_time_series_data(Goal.SECOND_SEM)
+
 
 	subject_summaries_sem1 = []
 	subject_summaries_sem2 = []
@@ -396,13 +534,26 @@ def dashboard(request):
 	unread_count = request.user.notifications.filter(is_read=False).count()
 
 
+	# Also prepare sem-specific labels for the toggle
+	period_labels_sem1 = [label for _, label in sem1_period_choices]
+	period_labels_sem2 = [label for _, label in sem2_period_choices]
+
 	context = {
 		'overall_average': round(float(overall_average), 2) if overall_average is not None else None,
 		'standing': _academic_standing(float(overall_average)) if overall_average is not None else 'No grades yet',
 		# Chart data for per-subject grouped bars and target line
 		'chart_subjects_json': json.dumps(chart_subjects),
+		'chart_subjects_sem1_json': json.dumps(chart_subjects_sem1),
+		'chart_subjects_sem2_json': json.dumps(chart_subjects_sem2),
 		'chart_datasets_json': json.dumps(datasets),
+		'chart_datasets_sem1_json': json.dumps(datasets_sem1),
+		'chart_datasets_sem2_json': json.dumps(datasets_sem2),
 		'chart_period_labels_json': json.dumps(period_labels),
+		'chart_period_labels_sem1_json': json.dumps(period_labels_sem1),
+		'chart_period_labels_sem2_json': json.dumps(period_labels_sem2),
+		# Time series data for Midterm/Endterm comparison
+		'time_series_sem1_json': json.dumps(time_series_sem1) if time_series_sem1 else 'null',
+		'time_series_sem2_json': json.dumps(time_series_sem2) if time_series_sem2 else 'null',
 		'sem1_period_choices': sem1_period_choices,
 		'sem2_period_choices': sem2_period_choices,
 		'subject_summaries_sem1': subject_summaries_sem1,
@@ -756,3 +907,83 @@ def delete_goal(request, pk):
 		messages.success(request, 'Goal deleted successfully.')
 		return redirect('edit_subject', pk=subject_pk)
 	return render(request, 'delete_goal.html', {'goal': goal})
+
+
+@login_required
+def view_subject(request, pk):
+	"""View subject details, grades, and goals."""
+	subject = get_object_or_404(Subject, pk=pk, user=request.user)
+
+	# Get all grades and goals for this subject
+	grades = subject.grades.all().order_by('grading_period')
+	goals = subject.goals.filter(user=request.user, active=True).order_by('semester')
+
+	# Calculate current average based on grades
+	current_average = _calculate_ched_weighted_average(subject)
+
+	# Latest grading period for this subject (to highlight in the UI)
+	latest_grading_period = grades.last().grading_period if grades.exists() else None
+
+	# Prepare data for the time series chart (Midterm/Endterm comparison)
+	# Show actual grades vs. target goals
+	time_series_data = {
+		'labels': [],
+		'datasets': []
+	}
+
+	# Only include periods that have grades recorded
+	recorded_periods = grades.values_list('grading_period', flat=True).distinct()
+
+	# Midterm and Endterm are the only periods used for this chart
+	if GradeEntry.MIDTERM in recorded_periods and GradeEntry.ENDTERM in recorded_periods:
+		# Add chart data only if both Midterm and Endterm grades are present
+		midterm_grade = grades.filter(grading_period=GradeEntry.MIDTERM).first()
+		endterm_grade = grades.filter(grading_period=GradeEntry.ENDTERM).first()
+
+		# Use the subject name as the label (single label for this subject)
+		time_series_data['labels'].append(subject.name)
+
+		# Actual grades dataset
+		time_series_data['datasets'].append({
+			'label': 'Actual Grade',
+			'data': [midterm_grade.grade, endterm_grade.grade],
+			'borderColor': '#2563eb',
+			'backgroundColor': 'rgba(37, 99, 235, 0.1)',
+			'borderWidth': 2,
+			'tension': 0.3,
+			'fill': False,
+			'pointRadius': 5,
+			'pointBackgroundColor': '#2563eb',
+		})
+
+		# Goal grades dataset (targets)
+		for goal in goals:
+			time_series_data['datasets'].append({
+				'label': f'Goal {goal.semester}',
+				'data': [goal.target_grade, goal.target_grade],
+				'borderColor': '#f97316',
+				'backgroundColor': 'rgba(249, 115, 22, 0.15)',
+				'borderWidth': 2,
+				'borderDash': [5, 5],
+				'tension': 0.3,
+				'fill': False,
+				'pointRadius': 4,
+				'pointBackgroundColor': '#f97316',
+				'pointStyle': 'triangle',
+			})
+
+	# Build the time series data for this subject
+	time_series_data = json.dumps(time_series_data)
+
+	context = {
+		'subject': subject,
+		'grades': grades,
+		'goals': goals,
+		'current_average': current_average,
+		'latest_grading_period': latest_grading_period,
+		'time_series_data': time_series_data,
+	}
+
+	return render(request, 'view_subject.html', context)
+
+

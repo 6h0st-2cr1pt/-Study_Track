@@ -30,6 +30,42 @@
     </div>
 </div>
 
+<!-- Time Series Charts: Midterm/Endterm Comparison with Toggle -->
+<div class="row g-3 mb-3">
+    <div class="col-lg-12">
+        <div class="card soft-shadow border-0 h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h3 class="h5 section-title mb-1">Semester Performance 📈</h3>
+                        <p class="text-muted mb-0">Midterm & Endterm Grades vs Goals</p>
+                    </div>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Semester toggle for time series">
+                        <button id="btn-ts-sem1" type="button" class="btn btn-outline-secondary active">1st Sem</button>
+                        <button id="btn-ts-sem2" type="button" class="btn btn-outline-secondary">2nd Sem</button>
+                    </div>
+                </div>
+
+                <!-- 1st Semester Chart (visible by default) -->
+                <div id="timeSeriesSem1Container" style="display: block; width: 100%; height: 350px; box-sizing: border-box;">
+                    <canvas id="timeSeriesSem1Chart" height="180" style="width: 100%; height: 350px; display: block; box-sizing: border-box;"></canvas>
+                </div>
+
+                <!-- 2nd Semester Chart (hidden by default) -->
+                <div id="timeSeriesSem2Container" style="display: none; width: 100%; height: 350px; box-sizing: border-box;">
+                    <canvas id="timeSeriesSem2Chart" height="180" style="width: 100%; height: 350px; display: block; box-sizing: border-box;"></canvas>
+                </div>
+
+                <div class="mt-3 pt-3 border-top">
+                    <small class="text-muted">
+                        <strong>Legend:</strong> Solid lines = Actual grades | Dashed lines = Target goals | Orange fill = Semester trend
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row g-4 mb-4">
     <div class="col-lg-8">
         <div class="card soft-shadow border-0 h-100">
@@ -39,7 +75,13 @@
                         <h3 class="h5 section-title mb-1">Progress Tracking</h3>
                         <p class="text-muted mb-0">Average grades across grading periods.</p>
                     </div>
-                    <a class="btn btn-sm btn-primary" href="{% url 'add_grade' %}">Add Grade</a>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Semester toggle">
+                            <button id="btn-sem1" type="button" class="btn btn-outline-secondary active">1st Sem</button>
+                            <button id="btn-sem2" type="button" class="btn btn-outline-secondary">2nd Sem</button>
+                        </div>
+                        <a class="btn btn-sm btn-primary" href="{% url 'add_grade' %}">Add Grade</a>
+                    </div>
                 </div>
                 <canvas id="gradesChart" height="220" style="min-height: 220px;"></canvas>
             </div>
@@ -145,25 +187,152 @@
     if (typeof Chart !== 'undefined' && typeof ChartDataLabels !== 'undefined') {
         Chart.register(ChartDataLabels);
     }
-    // Per-subject grouped bar chart: each subject is a category on x-axis.
-    // There is one bar dataset per grading period (e.g., Midterm, Endterm)
-    // and a 'Target' dataset drawn as a line overlay showing each subject's active goal.
-    const labels = JSON.parse('{{ chart_subjects_json|escapejs }}');
-    const rawDatasets = JSON.parse('{{ chart_datasets_json|escapejs }}');
 
-    // Convert datasets to Chart.js-friendly objects. We allow mixed dataset types
-    // because the last dataset (Target) may have type 'line'.
-    const datasets = rawDatasets.map(ds => {
-        // ensure missing values are null (already produced by view)
-        return Object.assign({}, ds);
-    });
+    // ============================================
+    // TIME SERIES CHARTS (Midterm/Endterm comparison)
+    // ============================================
+    const timeSeriesSem1Data = JSON.parse('{{ time_series_sem1_json|escapejs }}');
+    const timeSeriesSem2Data = JSON.parse('{{ time_series_sem2_json|escapejs }}');
+
+    // Render 1st Semester Time Series Chart
+    if (timeSeriesSem1Data && timeSeriesSem1Data.subject_names && timeSeriesSem1Data.subject_names.length > 0) {
+        const ctxSem1 = document.getElementById('timeSeriesSem1Chart');
+        if (ctxSem1) {
+            new Chart(ctxSem1, {
+                type: 'line',
+                data: {
+                    labels: timeSeriesSem1Data.subject_names,
+                    datasets: timeSeriesSem1Data.datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            suggestedMax: 100,
+                            ticks: { stepSize: 10 },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { usePointStyle: true, padding: 15 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 12 },
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(1);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // Render 2nd Semester Time Series Chart
+    if (timeSeriesSem2Data && timeSeriesSem2Data.subject_names && timeSeriesSem2Data.subject_names.length > 0) {
+        const ctxSem2 = document.getElementById('timeSeriesSem2Chart');
+        if (ctxSem2) {
+            new Chart(ctxSem2, {
+                type: 'line',
+                data: {
+                    labels: timeSeriesSem2Data.subject_names,
+                    datasets: timeSeriesSem2Data.datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            suggestedMax: 100,
+                            ticks: { stepSize: 10 },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { usePointStyle: true, padding: 15 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { size: 14, weight: 'bold' },
+                            bodyFont: { size: 12 },
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(1);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    // ============================================
+    // PROGRESS TRACKING CHART (Bar chart)
+    // ============================================
+    const labelsDefault = JSON.parse('{{ chart_subjects_json|escapejs }}');
+    const labelsSem1 = JSON.parse('{{ chart_subjects_sem1_json|escapejs }}');
+    const labelsSem2 = JSON.parse('{{ chart_subjects_sem2_json|escapejs }}');
+
+    const datasetsDefault = JSON.parse('{{ chart_datasets_json|escapejs }}');
+    const datasetsSem1 = JSON.parse('{{ chart_datasets_sem1_json|escapejs }}');
+    const datasetsSem2 = JSON.parse('{{ chart_datasets_sem2_json|escapejs }}');
+
+    // Helper to clone dataset objects so Chart.js doesn't keep references
+    function cloneDatasets(dsArray) {
+        return dsArray.map(d => Object.assign({}, d));
+    }
 
     const ctx = document.getElementById('gradesChart');
-    new Chart(ctx, {
+    // Start with 1st semester view if available, otherwise fall back to default
+    const initialDatasets = datasetsSem1 && datasetsSem1.length ? cloneDatasets(datasetsSem1) : cloneDatasets(datasetsDefault);
+    const initialLabels = labelsSem1 && labelsSem1.length ? labelsSem1 : labelsDefault;
+    const gradesChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels,
-            datasets: datasets,
+            labels: initialLabels,
+            datasets: initialDatasets,
         },
         options: {
             responsive: true,
@@ -200,5 +369,85 @@
             }
         }
     });
+
+    // Toggle function to switch between semester datasets
+    function switchToSemester(sem) {
+        let newDs = null;
+        let newLabels = null;
+        if (sem === '1') {
+            newDs = datasetsSem1 && datasetsSem1.length ? datasetsSem1 : datasetsDefault;
+            newLabels = labelsSem1 && labelsSem1.length ? labelsSem1 : labelsDefault;
+        } else if (sem === '2') {
+            newDs = datasetsSem2 && datasetsSem2.length ? datasetsSem2 : datasetsDefault;
+            newLabels = labelsSem2 && labelsSem2.length ? labelsSem2 : labelsDefault;
+        } else {
+            newDs = datasetsDefault;
+            newLabels = labelsDefault;
+        }
+
+        gradesChart.data.labels = newLabels;
+        gradesChart.data.datasets = cloneDatasets(newDs);
+        gradesChart.update();
+    }
+
+    // ============================================
+    // TIME SERIES CHARTS TOGGLE
+    // ============================================
+    const btnTsSem1 = document.getElementById('btn-ts-sem1');
+    const btnTsSem2 = document.getElementById('btn-ts-sem2');
+    const timeSeriesSem1Container = document.getElementById('timeSeriesSem1Container');
+    const timeSeriesSem2Container = document.getElementById('timeSeriesSem2Container');
+
+    if (btnTsSem1 && btnTsSem2) {
+        btnTsSem1.addEventListener('click', function() {
+            btnTsSem1.classList.add('active');
+            btnTsSem2.classList.remove('active');
+            timeSeriesSem1Container.style.display = 'block';
+            timeSeriesSem2Container.style.display = 'none';
+            // Ensure charts recalculate size after changing visibility
+            setTimeout(function() {
+                const c1 = document.getElementById('timeSeriesSem1Chart');
+                const c2 = document.getElementById('timeSeriesSem2Chart');
+                try {
+                    if (c1 && Chart.getChart) { const ch1 = Chart.getChart(c1); if (ch1) ch1.resize(); }
+                    if (c2 && Chart.getChart) { const ch2 = Chart.getChart(c2); if (ch2) ch2.resize(); }
+                } catch (e) { /* noop */ }
+                // also trigger a browser resize event for any layout listeners
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
+        });
+        btnTsSem2.addEventListener('click', function() {
+            btnTsSem2.classList.add('active');
+            btnTsSem1.classList.remove('active');
+            timeSeriesSem1Container.style.display = 'none';
+            timeSeriesSem2Container.style.display = 'block';
+            // Ensure charts recalculate size after changing visibility
+            setTimeout(function() {
+                const c1 = document.getElementById('timeSeriesSem1Chart');
+                const c2 = document.getElementById('timeSeriesSem2Chart');
+                try {
+                    if (c1 && Chart.getChart) { const ch1 = Chart.getChart(c1); if (ch1) ch1.resize(); }
+                    if (c2 && Chart.getChart) { const ch2 = Chart.getChart(c2); if (ch2) ch2.resize(); }
+                } catch (e) { /* noop */ }
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
+        });
+    }
+
+    // Wire up Progress Tracking buttons
+    const btnSem1 = document.getElementById('btn-sem1');
+    const btnSem2 = document.getElementById('btn-sem2');
+    if (btnSem1 && btnSem2) {
+        btnSem1.addEventListener('click', function() {
+            btnSem1.classList.add('active');
+            btnSem2.classList.remove('active');
+            switchToSemester('1');
+        });
+        btnSem2.addEventListener('click', function() {
+            btnSem2.classList.add('active');
+            btnSem1.classList.remove('active');
+            switchToSemester('2');
+        });
+    }
 </script>
 {% endblock %}

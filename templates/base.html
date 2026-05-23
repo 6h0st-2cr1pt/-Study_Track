@@ -20,6 +20,7 @@
         body {
             background: #0b0b0d;
             color: #f3f4f6;
+            overflow: hidden;
         }
 
         a {
@@ -34,6 +35,7 @@
             min-height: 100vh;
             display: flex;
             background: linear-gradient(180deg, #0b0b0d 0%, #111216 100%);
+            overflow: hidden;
         }
 
         .sidebar {
@@ -41,10 +43,12 @@
             background: #050506;
             border-right: 1px solid rgba(255, 255, 255, 0.08);
             padding: 1.25rem;
-            position: sticky;
+            position: fixed;
+            left: 0;
             top: 0;
+            bottom: 0;
             height: 100vh;
-            overflow-y: auto;
+            overflow: hidden;
         }
 
         .sidebar-brand {
@@ -138,11 +142,18 @@
         .main-content {
             flex: 1;
             padding: 1.5rem;
+            min-width: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100vh;
+            margin-left: 280px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .content-panel {
             max-width: 1200px;
             margin: 0 auto;
+            min-width: 0;
         }
 
         .card,
@@ -158,6 +169,11 @@
 
         .card {
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            overflow: hidden;
+        }
+
+        canvas {
+            max-width: 100%;
         }
 
         .table {
@@ -306,7 +322,12 @@
         /* Smaller screens adjustments */
         @media (max-width: 767px) {
             .sidebar { display: none; }
-            .main-content { padding: 1rem; }
+            .main-content {
+                padding: 1rem;
+                margin-left: 0;
+                height: auto;
+                overflow: visible;
+            }
             .brand-mark { width: 48px; height: 48px; }
         }
     </style>
