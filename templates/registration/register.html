@@ -2,209 +2,160 @@
 {% block title %}Register | StudyTrack{% endblock %}
 {% block content %}
 <style>
-/* Registration page theme overrides - ensure good contrast on dark backgrounds */
-.register-card .card-body { color: #ffffff; overflow: hidden; }
-.register-card .section-title { color: #ffffff; }
-.register-card .text-muted { color: rgba(255,255,255,0.75) !important; }
-.register-card .form-label { color: rgba(255,255,255,0.95); font-size: 0.9rem; font-weight: 500; margin-bottom: 0.4rem; }
-.register-card .form-text { color: rgba(255,255,255,0.75); font-size: 0.8rem; }
-.register-card .input-group-text { color: rgba(255,255,255,0.85); background: transparent; }
-.register-card .form-control { background: rgba(255,255,255,0.03); color: #ffffff; border: 1px solid rgba(255,255,255,0.12); box-shadow: none; transition: all 0.2s ease; height: 38px; }
-.register-card .form-control:focus { background: rgba(255,255,255,0.06); border-color: #f97316; color: #ffffff; box-shadow: 0 0 0 0.2rem rgba(249, 115, 22, 0.15); }
-.register-card .form-control::placeholder { color: rgba(255,255,255,0.6); }
-.register-card select.form-control { height: auto; padding: 0.5rem 0.75rem; }
-.register-card .btn-primary { background-color: #f97316; border-color: #f97316; color: #fff; transition: all 0.2s ease; font-weight: 500; }
-.register-card .btn-primary:hover { background-color: #ea6317; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3); }
-.register-card .btn-outline-primary { border-color: #f97316; color: #f97316; transition: all 0.2s ease; font-weight: 500; }
-.register-card .btn-outline-primary:hover { background-color: #f97316; color: #fff; }
-.register-card .btn-outline-secondary { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.9); transition: all 0.2s ease; font-weight: 500; }
-.register-card .btn-outline-secondary:hover { border-color: rgba(255,255,255,0.6); color: #ffffff; }
+/* Refined Registration Form Styles */
+.register-container { max-width: 560px; width: 100%; margin: 0 auto; }
+.step { opacity: 1; transform: translateY(0); transition: opacity 0.3s ease, transform 0.3s ease; display: block; }
+.step.d-none { display: none !important; opacity: 0; pointer-events: none; }
+.step.fade-out { opacity: 0; pointer-events: none; transform: translateY(-10px); }
+.step.fade-in { opacity: 1; display: block !important; transform: translateY(0); }
 
-/* Progress bar styling */
-.progress-indicator { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0 0.5rem; }
-.progress-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; }
-.progress-step:not(:last-child)::after { content: ''; position: absolute; top: 20px; left: 50%; width: 100%; height: 2px; background: rgba(255,255,255,0.1); z-index: 0; }
-.progress-step.active:not(:last-child)::after { background: #f97316; animation: fillLine 0.6s ease forwards; }
-.progress-circle { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-weight: 700; color: rgba(255,255,255,0.6); border: 2px solid rgba(255,255,255,0.2); transition: all 0.3s ease; position: relative; z-index: 1; }
-.progress-step.active .progress-circle { background: #f97316; color: #ffffff; border-color: #f97316; box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15); animation: popIn 0.4s ease; }
-.progress-step.completed .progress-circle { background: #4ade80; color: #ffffff; border-color: #4ade80; }
-.progress-label { margin-top: 0.25rem; font-size: 0.75rem; color: rgba(255,255,255,0.7); text-align: center; }
-.progress-step.active .progress-label { color: #f97316; font-weight: 600; }
+/* Progress Indicator */
+.progress-indicator { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2.5rem; position: relative; }
+.progress-line { position: absolute; top: 13px; left: 0; right: 0; height: 2px; background: #e5e7eb; z-index: 0; }
+@media (prefers-color-scheme: dark) { .progress-line { background: #374151; } }
+.progress-line-fill { position: absolute; top: 0; left: 0; height: 100%; background: #2563eb; width: 0%; transition: width 0.4s ease; }
+.progress-step { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; flex: 1; }
+.progress-circle { width: 28px; height: 28px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: #9ca3af; transition: all 0.3s ease; box-shadow: 0 0 0 6px var(--bg-color); border: 2px solid transparent; }
+@media (prefers-color-scheme: dark) { .progress-circle { background: #1f2937; color: #6b7280; } }
+.progress-step.active .progress-circle { background: #2563eb; color: #ffffff; box-shadow: 0 0 0 6px var(--bg-color); }
+.progress-step.completed .progress-circle { background: #10b981; color: #ffffff; border-color: #10b981; box-shadow: 0 0 0 6px var(--bg-color); }
+.progress-label { margin-top: 0.5rem; font-size: 0.75rem; color: #6b7280; font-weight: 500; }
+@media (prefers-color-scheme: dark) { .progress-label { color: #9ca3af; } }
+.progress-step.active .progress-label { color: var(--text-color); font-weight: 600; }
 
-/* Step transition animations */
-.step {
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    display: block;
-    will-change: opacity;
+/* Custom Inputs for Register */
+.form-control, .form-select { border: 0 !important; border-radius: 10px; padding: 0.85rem 1rem; font-size: 0.95rem; background-color: #f3f4f6; color: #1f2937; transition: all 0.2s ease; }
+.form-control:focus, .form-select:focus { background-color: #ffffff; box-shadow: 0 0 0 2px #2563eb; }
+@media (prefers-color-scheme: dark) {
+    .form-control, .form-select { background-color: #1a1c23; color: #f3f4f6; }
+    .form-control:focus, .form-select:focus { background-color: #0f1115; }
+    .card { background-color: #0f1115 !important; border: 1px solid #272a33 !important; }
 }
-.step.d-none {
-    display: none !important;
-    opacity: 0;
-    pointer-events: none;
-}
-.step.fade-out {
-    opacity: 0;
-    pointer-events: none;
-}
-.step.fade-in {
-    opacity: 1;
-    display: block !important;
-}
-.step h3 { font-size: 1.125rem; margin-bottom: 0.5rem; font-weight: 600; }
-.step > p { margin-bottom: 1.25rem; }
-
-@keyframes popIn {
-  0% { transform: scale(0.8); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
-}
-@keyframes fillLine {
-  from { width: 0%; }
-  to { width: 100%; }
-}
-
-@media (max-width: 767.98px) {
-  .register-card .card-body { padding: 1.25rem; }
-  .progress-indicator { padding: 0; margin-bottom: 1.5rem; }
-  .progress-circle { width: 36px; height: 36px; font-size: 0.875rem; }
-  .step { min-height: 180px; }
-}
+.form-label { font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+@media (prefers-color-scheme: dark) { .form-label { color: #9ca3af; } }
+.btn-nav { border-radius: 10px; padding: 0.7rem 1.5rem; font-weight: 500; }
 </style>
-<div class="d-flex align-items-center justify-content-center" style="min-height:100vh; padding: 18px;">
-    <div style="width:100%; max-width:1000px;">
-        <div class="card soft-shadow border-0 overflow-hidden register-card" style="height:800px;">
-            <div class="row g-0">
-                <div class="col-md-3 d-none d-md-flex align-items-center" style="background: linear-gradient(180deg,#f97316 0%, #fb923c 100%);">
-                    <div class="p-3 text-center w-100" style="padding-left:1.25rem;padding-right:1.25rem;">
-                        <img src="/static/icons/work-in-progress.png" alt="StudyTrack" class="brand-mark mb-2" style="width:56px;height:56px;background:rgba(0,0,0,0.06);">
-                        <h3 class="h6 fw-bold text-white">Create your account</h3>
-                        <p class="small text-white-50 mb-0">Join StudyTrack to set goals, log grades and stay on top of your academic progress.</p>
-                        <!-- Render any hidden form fields here so they don't increase vertical height of the form -->
-                        <div style="display:none;">
-                            {% for hidden in form.hidden_fields %}
-                                {{ hidden }}
-                            {% endfor %}
+
+<div class="d-flex align-items-center justify-content-center w-100 h-100" style="min-height: calc(100vh - 4rem);">
+    <div class="register-container">
+        <div class="card shadow-sm border-0" style="border-radius: 16px;">
+            <div class="card-body p-4 p-sm-5">
+                <div class="text-center mb-4 pb-2">
+                    <img src="/static/icons/work-in-progress.png" alt="StudyTrack Logo" style="width: 48px; height: 48px; border-radius: 12px; background: #e0e7ff; padding: 8px; margin-bottom: 12px;">
+                    <h1 class="h4 fw-bold mb-1" style="color: var(--text-color);">Create Account</h1>
+                    <p class="text-muted small">Join StudyTrack to monitor your academic progress</p>
+                </div>
+
+                <form method="post" id="multiStepRegisterForm">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    <div style="display:none;">
+                        {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                    </div>
+
+                    <!-- Progress indicator -->
+                    <div class="progress-indicator">
+                        <div class="progress-line"><div class="progress-line-fill" id="progressFill" style="width: 0%;"></div></div>
+                        <div class="progress-step active" data-step="1">
+                            <div class="progress-circle">1</div>
+                            <div class="progress-label">Personal</div>
+                        </div>
+                        <div class="progress-step" data-step="2">
+                            <div class="progress-circle">2</div>
+                            <div class="progress-label">School</div>
+                        </div>
+                        <div class="progress-step" data-step="3">
+                            <div class="progress-circle">3</div>
+                            <div class="progress-label">Security</div>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-9">
-                    <div class="card-body p-4" style="display:flex;flex-direction:column;height:800px;position:relative;">
-                        <h2 class="h6 section-title mb-1">Sign up</h2>
-                        <p class="text-muted mb-3" style="font-size:0.875rem;">Fill the form below to get started — it only takes a minute.</p>
 
-                        <form method="post" id="multiStepRegisterForm" style="display:flex;flex-direction:column;overflow:hidden;flex:1;">
-                            {% csrf_token %}
-                            {{ form.non_field_errors }}
-
-                            <!-- Progress indicator with circles and line -->
-                            <div class="progress-indicator">
-                                <div class="progress-step active" data-step="1">
-                                    <div class="progress-circle">1</div>
-                                    <div class="progress-label">Personal</div>
-                                </div>
-                                <div class="progress-step" data-step="2">
-                                    <div class="progress-circle">2</div>
-                                    <div class="progress-label">School</div>
-                                </div>
-                                <div class="progress-step" data-step="3">
-                                    <div class="progress-circle">3</div>
-                                    <div class="progress-label">Account</div>
-                                </div>
+                    <div style="min-height: 280px; position: relative;">
+                        <!-- Step 1: Personal (Name) -->
+                        <div class="step" data-step="1">
+                            <h3 class="h6 fw-bold mb-3" style="color: var(--text-color);">Your Details</h3>
+                            <div class="row g-3">
+                                {% for field in form.visible_fields %}
+                                    {% if field.name == 'first_name' or field.name == 'last_name' %}
+                                        <div class="col-sm-6">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
+                        </div>
 
-                            <!-- Steps container with absolute positioning -->
-                            <div style="position:relative;flex:1;min-height:400px;max-height:500px;">
-                                <!-- Step 1: Personal (Name) -->
-                                <div class="step" data-step="1" style="position:absolute;top:0;left:0;right:0;width:100%;">
-                                    <h3 class="h6 mb-1">Tell us your name</h3>
-                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Let's start with your personal information.</p>
-                                    <div class="row gx-2">
-                                        {% for field in form.visible_fields %}
-                                            {% if field.name == 'first_name' or field.name == 'last_name' %}
-                                                <div class="col-12 col-md-6 mb-2">
-                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">👤</span>
-                                                        {{ field }}
-                                                    </div>
-                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-
-                                <!-- Step 2: School Info -->
-                                <div class="step d-none" data-step="2" style="position:absolute;top:0;left:0;right:0;width:100%;">
-                                    <h3 class="h6 mb-1">Your school information</h3>
-                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Help us understand your academic calendar.</p>
-                                    <div class="row gx-2">
-                                        {% for field in form.visible_fields %}
-                                            {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' or field.name == 'grading_structure' or field.name == 'sem1_structure' or field.name == 'sem2_structure' %}
-                                                <div class="col-12 col-md-6 mb-2">
-                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">🏫</span>
-                                                        {{ field }}
-                                                    </div>
-                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-
-                                <!-- Step 3: Account (Username & Password) -->
-                                <div class="step d-none" data-step="3" style="position:absolute;top:0;left:0;right:0;width:100%;">
-                                    <h3 class="h6 mb-1">Create your account</h3>
-                                    <p class="text-muted small mb-2" style="font-size:0.8rem;">Choose a secure password for your account.</p>
-                                    <div class="row gx-2">
-                                        {% for field in form.visible_fields %}
-                                            {% if field.name == 'username' or field.name == 'email' or field.name == 'password1' or field.name == 'password2' %}
-                                                <div class="col-12 mb-2">
-                                                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text bg-transparent border-0 text-muted" style="min-width:36px;">
-                                                            {% if field.name == 'username' %}👤{% elif field.name == 'email' %}✉️{% else %}🔒{% endif %}
-                                                        </span>
-                                                        {{ field }}
-                                                    </div>
-                                                    {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
-                                                    {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
+                        <!-- Step 2: School Info -->
+                        <div class="step d-none" data-step="2">
+                            <h3 class="h6 fw-bold mb-3" style="color: var(--text-color);">Academic Setup</h3>
+                            <div class="row g-3">
+                                {% for field in form.visible_fields %}
+                                    {% if field.name == 'institution' or field.name == 'program' or field.name == 'year_level' %}
+                                        <div class="col-sm-12">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    {% if field.name == 'sem1_grading_periods' or field.name == 'sem2_grading_periods' %}
+                                        <div class="col-sm-6">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
+                        </div>
 
-                            <div class="d-flex justify-content-between pt-3" style="border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;position:relative;z-index:10;">
-                                <button type="button" class="btn btn-outline-secondary d-none btn-sm" id="prevStep">← Previous</button>
-                                <div style="margin-left:auto;">
-                                    <button type="button" class="btn btn-outline-primary me-2 btn-sm" id="nextStep">Next →</button>
-                                    <button type="submit" class="btn btn-primary d-none btn-sm" id="submitBtn">✓ Create Account</button>
-                                </div>
+                        <!-- Step 3: Account -->
+                        <div class="step d-none" data-step="3">
+                            <h3 class="h6 fw-bold mb-3" style="color: var(--text-color);">Account Security</h3>
+                            <div class="row g-3">
+                                {% for field in form.visible_fields %}
+                                    {% if field.name == 'username' or field.name == 'email' %}
+                                        <div class="col-sm-6">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    {% if field.name == 'password1' or field.name == 'password2' %}
+                                        <div class="col-sm-6">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
                             </div>
-                        </form>
-
-                        <p class="mt-3 mb-0 text-center small text-muted">
-                            Already have an account? <a href="{% url 'login' %}">Login here</a>
-                        </p>
+                        </div>
                     </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-4 border-top">
+                        <button type="button" class="btn btn-outline-secondary border-0 btn-nav d-none" id="prevStep">← Back</button>
+                        <div class="ms-auto">
+                            <button type="button" class="btn btn-primary btn-nav px-4 shadow-sm" id="nextStep">Next Step →</button>
+                            <button type="submit" class="btn btn-primary btn-nav px-4 d-none shadow-sm" id="submitBtn">Create Account ✓</button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="text-center mt-4">
+                    <p class="mb-0 text-muted small">Already have an account? <a href="{% url 'login' %}" class="fw-bold text-primary text-decoration-none">Log in</a></p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 <script>
-// Multi-step form behaviour with animations
 ;(function(){
     const steps = Array.from(document.querySelectorAll('.step'));
     const progressSteps = Array.from(document.querySelectorAll('.progress-step'));
+    const progressFill = document.getElementById('progressFill');
     const total = steps.length;
     let current = 0;
     const prevBtn = document.getElementById('prevStep');
@@ -218,63 +169,57 @@
             if(i === idx) s.classList.add('active');
             else if(i < idx) s.classList.add('completed');
         });
+        // Update line fill width (0%, 50%, 100%)
+        progressFill.style.width = (idx / (total - 1)) * 100 + '%';
     }
 
     function showStep(idx){
-        // Fade out current step
         if(steps[current]) {
             steps[current].classList.add('fade-out');
             steps[current].classList.remove('fade-in');
         }
 
-        // Fade in new step after a short delay
         setTimeout(() => {
             if(steps[current]) {
                 steps[current].classList.add('d-none');
             }
             steps[idx].classList.remove('d-none', 'fade-out');
+            void steps[idx].offsetWidth; // force reflow
             steps[idx].classList.add('fade-in');
-        }, 150);
+            current = idx;
+            updateProgressIndicator(idx);
 
-        current = idx;
-        updateProgressIndicator(idx);
-
-        // Toggle buttons
-        if(current === 0){
-            prevBtn.classList.add('d-none');
-            nextBtn.classList.remove('d-none');
-            submitBtn.classList.add('d-none');
-        } else if(current === total-1){
-            prevBtn.classList.remove('d-none');
-            nextBtn.classList.add('d-none');
-            submitBtn.classList.remove('d-none');
-        } else {
-            prevBtn.classList.remove('d-none');
-            nextBtn.classList.remove('d-none');
-            submitBtn.classList.add('d-none');
-        }
+            if(current === 0){
+                prevBtn.classList.add('d-none');
+                nextBtn.classList.remove('d-none');
+                submitBtn.classList.add('d-none');
+            } else if(current === total-1){
+                prevBtn.classList.remove('d-none');
+                nextBtn.classList.add('d-none');
+                submitBtn.classList.remove('d-none');
+            } else {
+                prevBtn.classList.remove('d-none');
+                nextBtn.classList.remove('d-none');
+                submitBtn.classList.add('d-none');
+            }
+        }, 300);
     }
 
     function validateStep(idx){
         const step = steps[idx];
         const inputs = Array.from(step.querySelectorAll('input, select, textarea'));
-
         for(const inp of inputs){
             if(inp.required && !inp.value.trim()){
                 inp.focus();
-                return {ok:false, msg:'Please fill the required fields.'};
+                return {ok:false, msg:'Please fill all required fields.'};
             }
         }
-
-        // Password confirmation check on step 3 (Account)
         if(idx === 2){
             const pwd = step.querySelector('input[name="password1"]');
             const pwd2 = step.querySelector('input[name="password2"]');
-            if(pwd && pwd2){
-                if(pwd.value !== pwd2.value){
-                    pwd2.focus();
-                    return {ok:false, msg:'Passwords do not match.'};
-                }
+            if(pwd && pwd2 && pwd.value !== pwd2.value){
+                pwd2.focus();
+                return {ok:false, msg:'Passwords do not match.'};
             }
         }
         return {ok:true};
@@ -282,10 +227,7 @@
 
     nextBtn.addEventListener('click', ()=>{
         const res = validateStep(current);
-        if(!res.ok){
-            alert(res.msg);
-            return;
-        }
+        if(!res.ok){ alert(res.msg); return; }
         showStep(Math.min(current+1, total-1));
     });
 
@@ -298,18 +240,18 @@
         if(!res.ok){
             e.preventDefault();
             alert(res.msg);
-            return false;
         }
     });
 
-    // Ensure rendered form widgets get bootstrap form-control class
+    // Clean up Django forms rendering to match custom minimalist design
     document.querySelectorAll('form input, form textarea, form select').forEach((el) => {
-        if (!el.classList.contains('form-control')) el.classList.add('form-control');
+        if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+            if(el.tagName === 'SELECT') el.classList.add('form-select');
+            else el.classList.add('form-control');
+        }
     });
 
-    // Initialize
-    showStep(0);
+    updateProgressIndicator(0);
 })();
 </script>
 {% endblock %}
-

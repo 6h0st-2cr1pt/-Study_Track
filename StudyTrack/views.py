@@ -17,11 +17,11 @@ def _normalize_subject_name(name):
 	return ' '.join(name.strip().split())
 
 
-def _get_or_create_subject(user, subject_name):
+def _get_or_create_subject(user, subject_name, year, semester):
 	normalized_name = _normalize_subject_name(subject_name)
-	subject = Subject.objects.filter(user=user, name__iexact=normalized_name).first()
+	subject = Subject.objects.filter(user=user, name__iexact=normalized_name, year=year, semester=semester).first()
 	if subject is None:
-		subject = Subject.objects.create(user=user, name=normalized_name)
+		subject = Subject.objects.create(user=user, name=normalized_name, year=year, semester=semester)
 	elif subject.name != normalized_name:
 		subject.name = normalized_name
 		subject.save(update_fields=['name'])
@@ -32,16 +32,15 @@ def _get_period_choices(user, semester=None):
 	"""Get grading period choices based on user's grading structure.
 
 	If semester is provided ('1' or '2'), use the per-semester internal structure
-	configured on the user's StudentProfile. Otherwise use the global grading_structure.
+	configured on the user's StudentProfile. Defaults to semester 1.
 	"""
 	profile, _ = StudentProfile.objects.get_or_create(user=user)
-	structure = profile.grading_structure
-	if semester == '1':
-		structure = profile.sem1_structure
-	elif semester == '2':
-		structure = profile.sem2_structure
+	if semester == '2':
+		structure = profile.sem2_grading_periods
+	else:
+		structure = profile.sem1_grading_periods
 
-	if structure == StudentProfile.TRIMESTER:
+	if structure == StudentProfile.THREE_PERIODS:
 		return GradeEntry.TRIMESTER_PERIOD_CHOICES
 	else:
 		return GradeEntry.SEMESTER_PERIOD_CHOICES
@@ -253,21 +252,26 @@ def dashboard(request):
 	sem1_period_choices = _get_period_choices(request.user, '1')
 	sem2_period_choices = _get_period_choices(request.user, '2')
 
-	# Subjects in alphabetical order
+	# Fetch ALL subjects for the user
 	subjects = list(Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name'))
-	chart_subjects = [s.name for s in subjects]
 
 	# Map active goals by subject id and semester so other parts of the view can reference them
 	active_goals = Goal.objects.filter(user=request.user, active=True)
 	goals_by_subject_sem = {(g.subject_id, g.semester): g for g in active_goals}
+	
+	# Total subjects (unfiltered by year) for stats if needed
+	total_subjects = Subject.objects.filter(user=request.user).count()
 
 	# Helper to build datasets for a given set of period choices and
 	# targets determined by active goals for the given semester.
 	palette = ['#2563eb', '#059669', '#f97316', '#ef4444']
 
-	def build_datasets_for(period_choices_for_sem, semester_key):
-		# Only include subjects that have active goals in this semester
-		subjects_for_sem = [s for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
+	def build_datasets_for(period_choices_for_sem, semester_key, year_key):
+		# Include all subjects for this semester and year
+		subjects_for_sem = [s for s in subjects if s.semester == semester_key and s.year == year_key]
+		
+		# Chart subjects specific to this filtered subset
+		chart_subjects_subset = [s.name for s in subjects_for_sem]
 		
 		ds = []
 		for idx, (code, label) in enumerate(period_choices_for_sem):
@@ -290,10 +294,11 @@ def dashboard(request):
 				'borderColor': color,
 			})
 
-		# Targets per subject but only consider active goals for the requested semester
+		# Targets per subject
 		targets_sem = []
 		for s in subjects_for_sem:
-			goal_obj = goals_by_subject_sem.get((s.id, semester_key))
+			# Get the active goal for the subject
+			goal_obj = next((g for g in s.goals.all() if g.active), None)
 			if goal_obj:
 				try:
 					targets_sem.append(round(float(goal_obj.target_grade), 2))
@@ -312,28 +317,19 @@ def dashboard(request):
 			'order': 2,
 		})
 
-		return ds
-
-	# Helper to get subject names for a semester
-	def get_subjects_for_sem(semester_key):
-		return [s.name for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
-
-	# Build sem-specific datasets and labels so the UI can toggle between them
-	datasets_sem1 = build_datasets_for(sem1_period_choices, Goal.FIRST_SEM)
-	datasets_sem2 = build_datasets_for(sem2_period_choices, Goal.SECOND_SEM)
-	chart_subjects_sem1 = get_subjects_for_sem(Goal.FIRST_SEM)
-	chart_subjects_sem2 = get_subjects_for_sem(Goal.SECOND_SEM)
-	# Default to the general period choices dataset for backwards compatibility
-	datasets = build_datasets_for(period_choices, Goal.FIRST_SEM)
+		return {
+			'subject_names': chart_subjects_subset,
+			'datasets': ds
+		}
 
 	# Build time series data for Midterm/Endterm comparison charts
-	def build_time_series_data(semester_key):
+	def build_time_series_data(semester_key, year_key):
 		"""Build chart data with Midterm Actual, Midterm Goal, Endterm Actual, Endterm Goal, and Overall Trend"""
-		# Get subjects with goals in this semester
-		subjects_in_sem = [s for s in subjects if goals_by_subject_sem.get((s.id, semester_key))]
+		# Get subjects in this semester and year
+		subjects_in_sem = [s for s in subjects if s.semester == semester_key and s.year == year_key]
 		
 		if not subjects_in_sem:
-			return None
+			return {'subject_names': [], 'datasets': []}
 		
 		subject_names = [s.name for s in subjects_in_sem]
 		
@@ -349,8 +345,8 @@ def dashboard(request):
 			midterm_grade = subject.grades.filter(grading_period=GradeEntry.MIDTERM).order_by('-recorded_at').first()
 			endterm_grade = subject.grades.filter(grading_period=GradeEntry.ENDTERM).order_by('-recorded_at').first()
 			
-			# Get goal for this semester
-			goal = goals_by_subject_sem.get((subject.id, semester_key))
+			# Get goal for this subject
+			goal = next((g for g in subject.goals.all() if g.active), None)
 			
 			# Midterm actual
 			midterm_actual.append(float(midterm_grade.grade) if midterm_grade else None)
@@ -364,175 +360,118 @@ def dashboard(request):
 			# Endterm goal
 			endterm_goal.append(float(goal.target_grade) if goal else None)
 			
-			# Overall trend (average of available grades)
-			grades_list = [float(g) for g in [
-				midterm_grade.grade if midterm_grade else None,
-				endterm_grade.grade if endterm_grade else None
-			] if g is not None]
+			# Overall average (calculate ched weighted if possible, else simple average)
+			subject_average = _calculate_ched_weighted_average(subject)
 			
-			if grades_list:
-				overall_trend.append(round(sum(grades_list) / len(grades_list), 2))
+			if subject_average is not None and goal is not None:
+				gap = round(float(subject_average) - float(goal.target_grade), 2)
+				overall_trend.append(gap)
 			else:
 				overall_trend.append(None)
+		
+		# Define colors based on positive/negative gap
+		bg_colors = []
+		border_colors = []
+		for val in overall_trend:
+			if val is None:
+				bg_colors.append('rgba(156, 163, 175, 0.5)')
+				border_colors.append('rgba(156, 163, 175, 1)')
+			elif val >= 0:
+				bg_colors.append('rgba(16, 185, 129, 0.85)') # Green
+				border_colors.append('rgba(5, 150, 105, 1)')
+			else:
+				bg_colors.append('rgba(239, 68, 68, 0.85)') # Red
+				border_colors.append('rgba(220, 38, 38, 1)')
 		
 		return {
 			'subject_names': subject_names,
 			'datasets': [
 				{
-					'label': 'Midterm Actual',
-					'data': midterm_actual,
-					'borderColor': '#2563eb',
-					'backgroundColor': 'rgba(37, 99, 235, 0.1)',
-					'borderWidth': 2,
-					'borderDash': [],
-					'tension': 0.3,
-					'fill': False,
-					'pointRadius': 5,
-					'pointBackgroundColor': '#2563eb',
-				},
-				{
-					'label': 'Midterm Goal',
-					'data': midterm_goal,
-					'borderColor': '#2563eb',
-					'backgroundColor': 'rgba(37, 99, 235, 0.05)',
-					'borderWidth': 2,
-					'borderDash': [5, 5],
-					'tension': 0.3,
-					'fill': False,
-					'pointRadius': 4,
-					'pointBackgroundColor': '#2563eb',
-					'pointStyle': 'triangle',
-				},
-				{
-					'label': 'Endterm Actual',
-					'data': endterm_actual,
-					'borderColor': '#059669',
-					'backgroundColor': 'rgba(5, 150, 105, 0.1)',
-					'borderWidth': 2,
-					'borderDash': [],
-					'tension': 0.3,
-					'fill': False,
-					'pointRadius': 5,
-					'pointBackgroundColor': '#059669',
-				},
-				{
-					'label': 'Endterm Goal',
-					'data': endterm_goal,
-					'borderColor': '#059669',
-					'backgroundColor': 'rgba(5, 150, 105, 0.05)',
-					'borderWidth': 2,
-					'borderDash': [5, 5],
-					'tension': 0.3,
-					'fill': False,
-					'pointRadius': 4,
-					'pointBackgroundColor': '#059669',
-					'pointStyle': 'triangle',
-				},
-				{
-					'label': 'Semester Trend',
+					'label': 'Distance to Goal',
 					'data': overall_trend,
-					'borderColor': '#f97316',
-					'backgroundColor': 'rgba(249, 115, 22, 0.15)',
-					'borderWidth': 3,
-					'borderDash': [],
-					'tension': 0.3,
-					'fill': True,
-					'pointRadius': 6,
-					'pointBackgroundColor': '#f97316',
+					'backgroundColor': bg_colors,
+					'borderColor': border_colors,
+					'borderWidth': 1,
 				}
 			]
 		}
 	
-	# Build time series data for both semesters
-	time_series_sem1 = build_time_series_data(Goal.FIRST_SEM)
-	time_series_sem2 = build_time_series_data(Goal.SECOND_SEM)
+	
+	# Group everything by year and semester for independent tabs
+	progress_tracking_data = {}
+	goal_distance_data = {}
+	subject_summaries = {}
 
+	for year_code, year_label in Subject.YEAR_CHOICES:
+		progress_tracking_data[year_code] = {
+			Subject.SEM_1: build_datasets_for(sem1_period_choices, Subject.SEM_1, year_code),
+			Subject.SEM_2: build_datasets_for(sem2_period_choices, Subject.SEM_2, year_code),
+		}
+		goal_distance_data[year_code] = {
+			Subject.SEM_1: build_time_series_data(Subject.SEM_1, year_code),
+			Subject.SEM_2: build_time_series_data(Subject.SEM_2, year_code),
+		}
+		
+		# Subject summaries for this year
+		summaries_sem1 = []
+		summaries_sem2 = []
+		
+		for subject in [s for s in subjects if s.year == year_code]:
+			latest_grade = subject.grades.first()
+			subject_average = _calculate_ched_weighted_average(subject)
 
-	subject_summaries_sem1 = []
-	subject_summaries_sem2 = []
-	# Build per-subject summaries compatible with includes/subject_table.html
-	# Only include a subject in a semester's list if it has an active goal for
-	# that semester. Since grading period codes are shared between semesters,
-	# we cannot reliably infer semester from grading_period alone.
-	# The semester separation is based on which semester a goal is assigned to.
+			# Active goal
+			active_goal = next((g for g in subject.goals.all() if g.active), None)
 
-	for subject in Subject.objects.filter(user=request.user).prefetch_related('grades').order_by('name'):
-		latest_grade = subject.grades.first()
-		subject_average = _calculate_ched_weighted_average(subject)
+			# Build ordered list of (code, label, latest_grade_obj) per period for this user
+			period_grade_pairs = []
+			for code, label in period_choices:
+				g = subject.grades.filter(grading_period=code).order_by('-recorded_at').first()
+				period_grade_pairs.append((code, label, g))
 
-		# Goals for each semester
-		goal_sem1 = goals_by_subject_sem.get((subject.id, Goal.FIRST_SEM))
-		goal_sem2 = goals_by_subject_sem.get((subject.id, Goal.SECOND_SEM))
+			# Determine filtering status
+			status = 'no_goal'
+			gap = None
+			target_progress = None
+			prediction_info = None
 
-		# Build ordered list of (code, label, latest_grade_obj) per period for this user
-		period_grade_pairs = []
-		for code, label in period_choices:
-			g = subject.grades.filter(grading_period=code).order_by('-recorded_at').first()
-			period_grade_pairs.append((code, label, g))
+			if active_goal:
+				if latest_grade is not None:
+					try:
+						gap = round(float(latest_grade.grade) - float(active_goal.target_grade), 2)
+						if float(active_goal.target_grade) > 0:
+							target_progress = min(round((float(latest_grade.grade) / float(active_goal.target_grade)) * 100, 1), 100)
+					except Exception:
+						gap = None
+				prediction_info = _calculate_predictive_grade(subject, active_goal)
+				status = 'below' if (gap is not None and gap < 0) else 'ontrack'
 
-		# Semester 1 entry (only include if there's an active semester-1 goal)
-		if goal_sem1:
-			gap1 = None
-			target_progress1 = None
-			prediction_info1 = None
-			if latest_grade is not None and goal_sem1 is not None:
-				try:
-					gap1 = round(float(latest_grade.grade) - float(goal_sem1.target_grade), 2)
-					if float(goal_sem1.target_grade) > 0:
-						target_progress1 = min(round((float(latest_grade.grade) / float(goal_sem1.target_grade)) * 100, 1), 100)
-				except Exception:
-					gap1 = None
-				prediction_info1 = _calculate_predictive_grade(subject, goal_sem1) if goal_sem1 else None
-
-			status1 = 'no_goal'
-			if gap1 is not None:
-				status1 = 'below' if gap1 < 0 else 'ontrack'
-
-			subject_summaries_sem1.append({
+			subject_data = {
 				'subject': subject,
 				'latest_grade': latest_grade,
+				'grades_count': subject.grades.count(),
 				'average': subject_average,
-				'goal': goal_sem1,
-				'gap': gap1,
-				'status': status1,
-				'target_progress': target_progress1,
-				'prediction_info': prediction_info1,
+				'goal': active_goal,
+				'gap': gap,
+				'target_progress': target_progress,
+				'goals_count': subject.goals.filter(active=True).count(),
+				'prediction_info': prediction_info,
 				'period_grade_pairs': period_grade_pairs,
-			})
+				'status': status,
+			}
 
-		# Semester 2 entry (only include if there's an active semester-2 goal)
-		if goal_sem2:
-			gap2 = None
-			target_progress2 = None
-			prediction_info2 = None
-			if latest_grade is not None and goal_sem2 is not None:
-				try:
-					gap2 = round(float(latest_grade.grade) - float(goal_sem2.target_grade), 2)
-					if float(goal_sem2.target_grade) > 0:
-						target_progress2 = min(round((float(latest_grade.grade) / float(goal_sem2.target_grade)) * 100, 1), 100)
-				except Exception:
-					gap2 = None
-				prediction_info2 = _calculate_predictive_grade(subject, goal_sem2) if goal_sem2 else None
-
-			status2 = 'no_goal'
-			if gap2 is not None:
-				status2 = 'below' if gap2 < 0 else 'ontrack'
-
-			subject_summaries_sem2.append({
-				'subject': subject,
-				'latest_grade': latest_grade,
-				'average': subject_average,
-				'goal': goal_sem2,
-				'gap': gap2,
-				'status': status2,
-				'target_progress': target_progress2,
-				'prediction_info': prediction_info2,
-				'period_grade_pairs': period_grade_pairs,
-			})
+			if subject.semester == Subject.SEM_1:
+				summaries_sem1.append(subject_data)
+			elif subject.semester == Subject.SEM_2:
+				summaries_sem2.append(subject_data)
+			
+		subject_summaries[year_code] = {
+			Subject.SEM_1: summaries_sem1,
+			Subject.SEM_2: summaries_sem2,
+		}
 
 	notifications = request.user.notifications.all()[:5]
 	unread_count = request.user.notifications.filter(is_read=False).count()
-
 
 	# Also prepare sem-specific labels for the toggle
 	period_labels_sem1 = [label for _, label in sem1_period_choices]
@@ -542,28 +481,21 @@ def dashboard(request):
 		'overall_average': round(float(overall_average), 2) if overall_average is not None else None,
 		'standing': _academic_standing(float(overall_average)) if overall_average is not None else 'No grades yet',
 		# Chart data for per-subject grouped bars and target line
-		'chart_subjects_json': json.dumps(chart_subjects),
-		'chart_subjects_sem1_json': json.dumps(chart_subjects_sem1),
-		'chart_subjects_sem2_json': json.dumps(chart_subjects_sem2),
-		'chart_datasets_json': json.dumps(datasets),
-		'chart_datasets_sem1_json': json.dumps(datasets_sem1),
-		'chart_datasets_sem2_json': json.dumps(datasets_sem2),
+		'progress_tracking_json': json.dumps(progress_tracking_data),
+		'goal_distance_json': json.dumps(goal_distance_data),
 		'chart_period_labels_json': json.dumps(period_labels),
 		'chart_period_labels_sem1_json': json.dumps(period_labels_sem1),
 		'chart_period_labels_sem2_json': json.dumps(period_labels_sem2),
-		# Time series data for Midterm/Endterm comparison
-		'time_series_sem1_json': json.dumps(time_series_sem1) if time_series_sem1 else 'null',
-		'time_series_sem2_json': json.dumps(time_series_sem2) if time_series_sem2 else 'null',
 		'sem1_period_choices': sem1_period_choices,
 		'sem2_period_choices': sem2_period_choices,
-		'subject_summaries_sem1': subject_summaries_sem1,
-		'subject_summaries_sem2': subject_summaries_sem2,
+		'subject_summaries': subject_summaries,
 		'notifications': notifications,
 		'unread_count': unread_count,
 		'recent_grades': grades.select_related('subject')[:10],
 		'total_goals': Goal.objects.filter(user=request.user, active=True).count(),
 		'total_subjects': Subject.objects.filter(user=request.user).count(),
 		'period_choices': period_choices,
+		'year_choices': Subject.YEAR_CHOICES,
 	}
 	return render(request, 'dashboard.html', context)
 
@@ -574,7 +506,9 @@ def add_grade(request):
 		post_data = request.POST
 		# Support legacy POSTs that send 'subject_name' (string) by converting to subject id
 		if 'subject_name' in request.POST and 'subject' not in request.POST:
-			subject = _get_or_create_subject(request.user, request.POST.get('subject_name'))
+			year = request.POST.get('year', '1')
+			semester = request.POST.get('semester', '1')
+			subject = _get_or_create_subject(request.user, request.POST.get('subject_name'), year, semester)
 			post_data = request.POST.copy()
 			post_data['subject'] = str(subject.pk)
 
@@ -610,7 +544,7 @@ def add_goal(request):
 	if request.method == 'POST':
 		form = GoalForm(request.POST)
 		if form.is_valid():
-			subject = _get_or_create_subject(request.user, form.cleaned_data['subject_name'])
+			subject = _get_or_create_subject(request.user, form.cleaned_data['subject_name'], form.cleaned_data['year'], form.cleaned_data['semester'])
 			Goal.objects.filter(user=request.user, subject=subject, active=True).update(active=False)
 			Goal.objects.create(
 				user=request.user,
@@ -682,7 +616,14 @@ def delete_notification(request, pk):
 @login_required
 def data_management(request):
 	"""Display all subjects with options to edit or delete."""
-	subjects = Subject.objects.filter(user=request.user).prefetch_related('grades', 'goals').order_by('name')
+	selected_year = request.GET.get('year', Subject.YEAR_1)
+	if selected_year not in dict(Subject.YEAR_CHOICES):
+		selected_year = Subject.YEAR_1
+		
+	subjects = Subject.objects.filter(user=request.user, year=selected_year).prefetch_related('grades', 'goals').order_by('name')
+
+	# Get total subjects across all years for statistics
+	total_subjects = Subject.objects.filter(user=request.user).count()
 
 	# Prepare semester-specific subject lists
 	subject_data_sem1 = []
@@ -751,15 +692,15 @@ def data_management(request):
 
 		# Determine status for filtering
 		status1 = 'no_goal'
-		if goal_obj_sem1 and gap1 is not None:
-			status1 = 'below' if gap1 < 0 else 'ontrack'
+		if goal_obj_sem1:
+			status1 = 'below' if (gap1 is not None and gap1 < 0) else 'ontrack'
 
 		status2 = 'no_goal'
-		if goal_obj_sem2 and gap2 is not None:
-			status2 = 'below' if gap2 < 0 else 'ontrack'
+		if goal_obj_sem2:
+			status2 = 'below' if (gap2 is not None and gap2 < 0) else 'ontrack'
 
-		# Append to sem1 list only when there's an active sem1 goal
-		if goal_obj_sem1:
+		# Append to sem1 list if subject is from sem 1
+		if subject.semester == Subject.SEM_1:
 			subject_data_sem1.append({
 				'subject': subject,
 				'latest_grade': latest_grade,
@@ -774,8 +715,8 @@ def data_management(request):
 				'status': status1,
 			})
 
-		# Append to sem2 list only when there's an active sem2 goal
-		if goal_obj_sem2:
+		# Append to sem2 list if subject is from sem 2
+		elif subject.semester == Subject.SEM_2:
 			subject_data_sem2.append({
 				'subject': subject,
 				'latest_grade': latest_grade,
@@ -793,11 +734,12 @@ def data_management(request):
 	context = {
 		'subject_data_sem1': subject_data_sem1,
 		'subject_data_sem2': subject_data_sem2,
-		'total_subjects': len(subjects),
+		'total_subjects': total_subjects,
 		'period_choices': period_choices,
 		'sem1_period_choices': sem1_period_choices,
 		'sem2_period_choices': sem2_period_choices,
-		'grading_structure': StudentProfile.objects.get_or_create(user=request.user)[0].grading_structure,
+		'year_choices': Subject.YEAR_CHOICES,
+		'selected_year': selected_year,
 	}
 	return render(request, 'data_management.html', context)
 
