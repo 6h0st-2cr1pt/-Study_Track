@@ -124,12 +124,22 @@ Run the comprehensive test suite:
 python manage.py test StudyTrack.tests -v 2
 ```
 
-All 8 tests cover:
+All 9 tests cover:
 - User registration with grading structure selection
 - Grade entry with CHED components and notifications
 - Predictive calculations and goal tracking
 - Dashboard and profile management
 - Authentication and authorization
+
+### BSIS Curriculum Seeding
+
+To populate a user with the BSIS subject set for 1st to 4th year and both semesters, plus sample random midterm and endterm grades and active target goals, run:
+
+```powershell
+python manage.py seed_bsis_curriculum --username Fedorov
+```
+
+If the `Fedorov` account does not exist yet, the command will create it with an unusable password and then seed the curriculum subjects, grades, and goals. Re-running the command is safe and will not create duplicate subjects, grades, or goals.
 
 ## How It Works: Student vs Teacher Role
 

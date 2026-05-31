@@ -1,8 +1,13 @@
+import json
+from io import StringIO
+
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Notification, StudentProfile, Subject
+from .data.bsis_curriculum import BSIS_CURRICULUM, iter_curriculum_subjects
+from .models import GradeEntry, Goal, Notification, StudentProfile, Subject
 
 
 class StudyTrackFlowTests(TestCase):
@@ -142,3 +147,52 @@ class StudyTrackFlowTests(TestCase):
 		self.assertEqual(response.status_code, 200)
 		self.assertContains(response, 'Manage Profile')
 		self.assertContains(response, 'cdn-icons-png.flaticon.com')
+
+	def test_seed_bsis_curriculum_command_populates_fedorov(self):
+		user = User.objects.create_user(username='Fedorov', password='StrongPass123!')
+		buffer = StringIO()
+		call_command('seed_bsis_curriculum', username='Fedorov', stdout=buffer)
+
+		self.assertTrue(User.objects.filter(username='Fedorov').exists())
+		expected_subjects = list(iter_curriculum_subjects())
+		curriculum_subjects = Subject.objects.filter(user=user, name__in=[item['name'] for item in expected_subjects])
+		self.assertEqual(curriculum_subjects.count(), len(expected_subjects))
+		self.assertEqual(GradeEntry.objects.filter(user=user, subject__in=curriculum_subjects).count(), len(expected_subjects) * 2)
+		self.assertEqual(Goal.objects.filter(user=user, subject__in=curriculum_subjects, active=True).count(), len(expected_subjects))
+
+		for term in BSIS_CURRICULUM:
+			self.assertEqual(
+				Subject.objects.filter(
+					user=user,
+					year=term['year'],
+					semester=term['semester'],
+				).count(),
+				len(term['subjects']),
+			)
+
+		for subject in curriculum_subjects:
+			self.assertEqual(subject.grades.count(), 2)
+			self.assertTrue(subject.grades.filter(grading_period=GradeEntry.MIDTERM).exists())
+			self.assertTrue(subject.grades.filter(grading_period=GradeEntry.ENDTERM).exists())
+
+		self.client.login(username='Fedorov', password='StrongPass123!')
+		response = self.client.get(reverse('dashboard'))
+		self.assertEqual(response.status_code, 200)
+		self.assertContains(response, 'gradesChart')
+		self.assertContains(response, 'goalDistanceChart')
+
+		context = response.context[-1]
+		progress_tracking = json.loads(context['progress_tracking_json'])
+		goal_distance = json.loads(context['goal_distance_json'])
+		self.assertGreater(len(progress_tracking['1']['1']['subject_names']), 0)
+		self.assertGreater(len(progress_tracking['1']['1']['datasets']), 0)
+		self.assertGreater(len(goal_distance['1']['1']['subject_names']), 0)
+		self.assertGreater(len(goal_distance['1']['1']['datasets']), 0)
+
+		# Running the seed command again should not duplicate subjects, grades, or goals.
+		call_command('seed_bsis_curriculum', username='Fedorov', stdout=StringIO())
+		self.assertEqual(Subject.objects.filter(user=user, name__in=[item['name'] for item in expected_subjects]).count(), len(expected_subjects))
+		self.assertEqual(GradeEntry.objects.filter(user=user, subject__in=curriculum_subjects).count(), len(expected_subjects) * 2)
+		self.assertEqual(Goal.objects.filter(user=user, subject__in=curriculum_subjects, active=True).count(), len(expected_subjects))
+		self.assertIn('BSIS curriculum seeded for user "Fedorov"', buffer.getvalue())
+
